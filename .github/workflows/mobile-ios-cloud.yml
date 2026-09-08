@@ -138,6 +138,10 @@ jobs:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
+          # Automatic signing picks the identity itself — pinning
+          # CODE_SIGN_IDENTITY="Apple Distribution" here conflicts with it and
+          # fails the archive on Xcode 15+. The distribution signing is applied
+          # at export time via method=app-store-connect in ExportOptions.plist.
           xcodebuild archive \
             -project ios/App/App.xcodeproj \
             -scheme App \
@@ -147,7 +151,6 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             PRODUCT_BUNDLE_IDENTIFIER="$APP_BUNDLE_ID" \
             CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
