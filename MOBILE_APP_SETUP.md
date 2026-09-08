@@ -25,24 +25,34 @@ npm run cap:open:ios
 
 The Android project is in `android/`.
 
-To build on this Windows PC, install:
+This Windows PC is now configured with:
 
 - Java JDK 21
 - Android Studio
 - Android SDK platform 36
+- Android build-tools 35/36
+- Android platform-tools / ADB
 
-After that:
+Build a debug APK with:
 
 ```bash
 cd android
 .\gradlew.bat assembleDebug
 ```
 
-The debug APK will be generated under:
+The current debug APK is generated here:
 
 ```text
-android/app/build/outputs/apk/debug/
+android/app/build/outputs/apk/debug/app-debug.apk
 ```
+
+To install it on a connected Android phone:
+
+```bash
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+The phone must have Developer Options and USB debugging enabled.
 
 ## iOS
 
