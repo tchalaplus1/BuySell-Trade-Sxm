@@ -6,8 +6,9 @@ Ce projet peut etre compile pour iPhone avec GitHub Actions sur macOS, sans avoi
 
 ```text
 App name: Buy Sell Trade SXM
-Bundle ID: com.tchalaplus.mobile
+Bundle ID: com.korekdigitalmarketing.buyselltradesxm
 Apple Team ID: CJ7X9S5JDT
+App Store Connect ID: 6809964445
 Workflow: .github/workflows/mobile-ios-cloud.yml
 ```
 
@@ -25,14 +26,11 @@ Ce test verifie que le projet iOS compile dans le cloud. Il ne donne pas une app
 
 ## Build iPhone pour TestFlight / App Store
 
-Pour produire un IPA signe et l'envoyer a App Store Connect, il faut ajouter ces secrets dans GitHub:
+Pour produire un IPA signe et l'envoyer a App Store Connect, GitHub utilise une cle API App Store Connect et la signature automatique Xcode.
+
+Les secrets GitHub requis sont:
 
 ```text
-IOS_DISTRIBUTION_CERTIFICATE_BASE64
-IOS_DISTRIBUTION_CERTIFICATE_PASSWORD
-IOS_KEYCHAIN_PASSWORD
-IOS_APP_STORE_PROFILE_BASE64
-IOS_APP_STORE_PROFILE_NAME
 APP_STORE_CONNECT_KEY_ID
 APP_STORE_CONNECT_ISSUER_ID
 APP_STORE_CONNECT_API_KEY_BASE64
@@ -47,46 +45,28 @@ Ensuite:
 5. Cliquer `Run workflow`.
 6. Choisir `app-store`.
 
-Le workflow cree un IPA signe, le garde comme artifact GitHub, puis l'envoie vers App Store Connect si les secrets API Apple sont presents.
+Le workflow cree un IPA signe, le garde comme artifact GitHub, puis l'envoie vers App Store Connect.
 
-## D'ou viennent les secrets Apple
+## Secrets Apple actuels
 
-Ces fichiers/informations viennent du compte Apple Developer:
+Ces secrets ont ete ajoutes dans GitHub pour Buy Sell Trade SXM:
 
 ```text
-IOS_DISTRIBUTION_CERTIFICATE_BASE64:
-  Fichier .p12 du certificat Apple Distribution, converti en base64.
-
-IOS_DISTRIBUTION_CERTIFICATE_PASSWORD:
-  Mot de passe du fichier .p12.
-
-IOS_KEYCHAIN_PASSWORD:
-  Mot de passe temporaire pour le keychain GitHub Actions.
-  Choisir un nouveau mot de passe fort.
-
-IOS_APP_STORE_PROFILE_BASE64:
-  Fichier .mobileprovision App Store pour com.tchalaplus.mobile, converti en base64.
-
-IOS_APP_STORE_PROFILE_NAME:
-  Nom exact du provisioning profile App Store.
-
 APP_STORE_CONNECT_KEY_ID:
-  Key ID de la cle API App Store Connect.
+  Y6J4C3L34P
 
 APP_STORE_CONNECT_ISSUER_ID:
-  Issuer ID App Store Connect.
+  d813053b-d1e0-409c-8b4a-607fd670049e
 
 APP_STORE_CONNECT_API_KEY_BASE64:
-  Fichier AuthKey_XXXX.p8 de App Store Connect, converti en base64.
+  Fichier AuthKey_Y6J4C3L34P.p8 de App Store Connect, converti en base64.
 ```
 
-## Commandes Windows pour convertir en base64
+## Commande Windows pour convertir une cle API en base64
 
 Depuis PowerShell:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\file.p12")) | Set-Clipboard
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\profile.mobileprovision")) | Set-Clipboard
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\AuthKey_KEYID.p8")) | Set-Clipboard
 ```
 

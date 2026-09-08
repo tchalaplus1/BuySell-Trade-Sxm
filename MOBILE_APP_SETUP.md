@@ -6,7 +6,7 @@ Capacitor is set up for the mobile app wrapper.
 
 ```text
 App name: Buy Sell Trade SXM
-Bundle/package ID: com.tchalaplus.mobile
+Bundle/package ID: com.korekdigitalmarketing.buyselltradesxm
 Live app URL: https://buyselltradesxm.com
 ```
 
@@ -65,7 +65,7 @@ To launch the emulator and install the current debug APK:
 ```bash
 emulator -avd BuySellTradeSXM_Pixel8_API36
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-adb shell monkey -p com.tchalaplus.mobile -c android.intent.category.LAUNCHER 1
+adb shell monkey -p com.korekdigitalmarketing.buyselltradesxm -c android.intent.category.LAUNCHER 1
 ```
 
 ## iOS
@@ -87,7 +87,7 @@ npm run cap:open:ios
 Then in Xcode:
 
 - Select the Apple Developer team
-- Confirm bundle ID `com.tchalaplus.mobile`
+- Confirm bundle ID `com.korekdigitalmarketing.buyselltradesxm`
 - Archive for App Store Connect
 
 ## Notes
