@@ -1,5 +1,19 @@
 apply plugin: 'com.android.application'
 
+// Release signing — values come from CI env vars or a local (git-ignored)
+// keystore.properties. Absent both, release builds stay unsigned so local
+// debug work is unaffected. See ANDROID_PLAY_SETUP.md.
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
+}
+def ksPath     = System.getenv("ANDROID_KEYSTORE_PATH")     ?: keystoreProps.getProperty("storeFile")
+def ksPassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: keystoreProps.getProperty("storePassword")
+def ksAlias    = System.getenv("ANDROID_KEY_ALIAS")         ?: keystoreProps.getProperty("keyAlias")
+def ksKeyPass  = System.getenv("ANDROID_KEY_PASSWORD")      ?: keystoreProps.getProperty("keyPassword")
+def hasReleaseSigning = ksPath && ksPassword && ksAlias && ksKeyPass
+
 android {
     namespace = "com.korekdigitalmarketing.buyselltradesxm"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +21,8 @@ android {
         applicationId "com.korekdigitalmarketing.buyselltradesxm"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger()
+        versionName System.getenv("ANDROID_VERSION_NAME") ?: "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +30,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(ksPath)
+                storePassword ksPassword
+                keyAlias ksAlias
+                keyPassword ksKeyPass
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

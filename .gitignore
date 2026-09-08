@@ -13,3 +13,11 @@ hostinger-session-check.png
 mobile-*.png
 android-*.png
 supabase/.temp/
+
+# Android / Play signing — never commit these
+*.jks
+*.keystore
+keystore.properties
+android/keystore.properties
+play-service-account*.json
+*-play-service-account.json
