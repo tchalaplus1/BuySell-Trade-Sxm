@@ -54,6 +54,20 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 
 The phone must have Developer Options and USB debugging enabled.
 
+An Android emulator is also configured on this PC:
+
+```text
+BuySellTradeSXM_Pixel8_API36
+```
+
+To launch the emulator and install the current debug APK:
+
+```bash
+emulator -avd BuySellTradeSXM_Pixel8_API36
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb shell monkey -p com.tchalaplus.mobile -c android.intent.category.LAUNCHER 1
+```
+
 ## iOS
 
 The iOS project is in `ios/`.
