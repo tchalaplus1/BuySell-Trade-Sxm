@@ -8,11 +8,33 @@ type EmailQueueRow = {
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const serviceRoleKey = getSupabaseSecretKey();
 const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";
 const workerSecret = Deno.env.get("EMAIL_QUEUE_SECRET") || "";
 const fromEmail = Deno.env.get("EMAIL_FROM") || "Buy Sell Trade SXM <noreply@buyselltradesxm.com>";
 const siteUrl = (Deno.env.get("SITE_URL") || "https://buyselltradesxm.com").replace(/\/$/, "");
+
+function getSupabaseSecretKey() {
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  if (legacy) return legacy;
+
+  const secretKeys = Deno.env.get("SUPABASE_SECRET_KEYS") || "";
+  if (!secretKeys) return "";
+
+  try {
+    const parsed = JSON.parse(secretKeys);
+    if (typeof parsed === "string") return parsed;
+    if (parsed && typeof parsed === "object") {
+      for (const value of Object.values(parsed)) {
+        if (typeof value === "string" && value.length > 20) return value;
+      }
+    }
+  } catch (_error) {
+    return "";
+  }
+
+  return "";
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -143,37 +165,44 @@ async function sendWithResend(row: EmailQueueRow, email: ReturnType<typeof build
 }
 
 Deno.serve(async (request) => {
-  if (request.method !== "POST") return json({ ok: false, error: "method not allowed" }, 405);
-  if (!workerSecret) return json({ ok: false, error: "EMAIL_QUEUE_SECRET is not configured" }, 503);
-  if (request.headers.get("x-email-worker-secret") !== workerSecret) {
-    return json({ ok: false, error: "unauthorized" }, 401);
-  }
-  if (!supabaseUrl || !serviceRoleKey) return json({ ok: false, error: "Supabase service env is missing" }, 503);
-  if (!resendApiKey) return json({ ok: false, error: "RESEND_API_KEY is not configured" }, 503);
-
-  const body = await request.json().catch(() => ({}));
-  const batchSize = Math.max(1, Math.min(Number(body.batch_size || 10), 50));
-  const rows = (await rpc("claim_email_queue", { batch_size: batchSize })) as EmailQueueRow[];
-  const results = [];
-
-  for (const row of rows || []) {
-    try {
-      const email = buildEmail(row);
-      const sent = await sendWithResend(row, email);
-      await rpc("mark_email_sent", {
-        email_id: row.id,
-        provider_name: "resend",
-        provider_id: sent.id || null,
-      });
-      results.push({ id: row.id, ok: true, providerId: sent.id || null });
-    } catch (error) {
-      await rpc("mark_email_failed", {
-        email_id: row.id,
-        error_message: error instanceof Error ? error.message : String(error),
-      });
-      results.push({ id: row.id, ok: false, error: error instanceof Error ? error.message : String(error) });
+  try {
+    if (request.method !== "POST") return json({ ok: false, error: "method not allowed" }, 405);
+    if (!workerSecret) return json({ ok: false, error: "EMAIL_QUEUE_SECRET is not configured" }, 503);
+    if (request.headers.get("x-email-worker-secret") !== workerSecret) {
+      return json({ ok: false, error: "unauthorized" }, 401);
     }
-  }
+    if (!supabaseUrl || !serviceRoleKey) return json({ ok: false, error: "Supabase service env is missing" }, 503);
+    if (!resendApiKey) return json({ ok: false, error: "RESEND_API_KEY is not configured" }, 503);
 
-  return json({ ok: true, claimed: rows?.length || 0, results });
+    const body = await request.json().catch(() => ({}));
+    const batchSize = Math.max(1, Math.min(Number(body.batch_size || 10), 50));
+    const rows = (await rpc("claim_email_queue", { batch_size: batchSize })) as EmailQueueRow[];
+    const results = [];
+
+    for (const row of rows || []) {
+      try {
+        const email = buildEmail(row);
+        const sent = await sendWithResend(row, email);
+        await rpc("mark_email_sent", {
+          email_id: row.id,
+          provider_name: "resend",
+          provider_id: sent.id || null,
+        });
+        results.push({ id: row.id, ok: true, providerId: sent.id || null });
+      } catch (error) {
+        await rpc("mark_email_failed", {
+          email_id: row.id,
+          error_message: error instanceof Error ? error.message : String(error),
+        });
+        results.push({ id: row.id, ok: false, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    return json({ ok: true, claimed: rows?.length || 0, results });
+  } catch (error) {
+    return json({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    }, 500);
+  }
 });
