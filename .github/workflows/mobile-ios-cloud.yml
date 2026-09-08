@@ -94,8 +94,13 @@ jobs:
 
       - name: Override marketing version
         if: ${{ github.event.inputs.marketing_version != '' }}
+        env:
+          MARKETING_VERSION: ${{ github.event.inputs.marketing_version }}
         run: |
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ github.event.inputs.marketing_version }}" ios/App/App/Info.plist || \
+          if ! printf '%s' "$MARKETING_VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){0,2}$'; then
+            echo "::error::marketing_version must look like 1.0 or 1.0.1"; exit 1
+          fi
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" ios/App/App/Info.plist || \
           echo "::warning::could not set CFBundleShortVersionString; project uses MARKETING_VERSION build setting"
 
       - name: Write App Store Connect API key
