@@ -1,20 +1,36 @@
 # Google Login Setup
 
-This project is ready for Google login, but Google and Supabase both need OAuth settings before the button can work.
+Google login is configured for the production Supabase project and enabled in the app config.
+
+Current production setup:
+
+```text
+Google Cloud account: korekdigitalmarketing@gmail.com
+Supabase account/organization: tchalaplus / tchalaplus1
+Supabase project ref: szhaxlmronirhnntlwyb
+Website origin: https://buyselltradesxm.com
+Supabase OAuth callback: https://szhaxlmronirhnntlwyb.supabase.co/auth/v1/callback
+```
+
+Do not store the Google OAuth client secret in this repository.
+
+## Recreate Or Rotate Credentials
+
+Use this only if the OAuth client is deleted, rotated, or moved to another Google Cloud project.
 
 ## Google Cloud
 
-Open:
+Open Google Cloud:
 
 ```text
-https://console.cloud.google.com/apis/credentials?project=project-adc2412a-82f5-406e-b1b&authuser=3
+https://console.cloud.google.com/apis/credentials
 ```
 
 Create an OAuth client:
 
 ```text
 Application type: Web application
-Name: Buy Sell Trade SXM
+Name: Buy Sell Trade SXM Web
 ```
 
 Use these exact URLs:

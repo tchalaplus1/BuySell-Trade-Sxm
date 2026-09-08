@@ -19,7 +19,7 @@ window.SUPABASE_ANON_KEY = "sb_publishable_2EgfSBNrfE-5rIC2qS__tg_dCoEFyac";
  * l'utilisateur vers l'erreur "Unsupported provider".
  */
 window.SUPABASE_OAUTH_PROVIDERS = {
-  google: false
+  google: true
 };
 
 /* Crée le client `db` seulement si la config est remplie ET si la
