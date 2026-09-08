@@ -59,8 +59,8 @@ jobs:
     env:
       APP_BUNDLE_ID: com.korekdigitalmarketing.buyselltradesxm
       APPLE_TEAM_ID: CJ7X9S5JDT
-      ARCHIVE_PATH: /tmp/BuySellTradeSXM.xcarchive
-      EXPORT_PATH: /tmp/ios-export
+      ARCHIVE_PATH: ${{ runner.temp }}/BuySellTradeSXM.xcarchive
+      EXPORT_PATH: ${{ runner.temp }}/ios-export
     steps:
       - name: Checkout
         uses: actions/checkout@v4
