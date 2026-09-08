@@ -4,6 +4,7 @@ node_modules/
 npm-debug.log*
 .env
 .env.local
+*.p8
 .netlify/
 .edge-hostinger-profile/
 hostinger-current.png

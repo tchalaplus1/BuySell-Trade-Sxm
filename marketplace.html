@@ -1136,6 +1136,8 @@
   }
   .social-btn:hover{background:#f7fbfb;transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--line);}
   .social-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--line);}
+  .social-btn.apple{background:#111;color:#fff;}
+  .social-btn.apple:hover{background:#000;}
   .social-divider{display:flex;align-items:center;gap:10px;margin-bottom:12px;color:var(--mute);font-size:13px;}
   .social-divider::before,.social-divider::after{content:"";flex:1;height:1px;background:var(--line);}
   .auth-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch;}
@@ -2032,6 +2034,11 @@
     </div>
     <div class="dialog-body">
       <form class="form-panel" id="postForm" onsubmit="return createListing(event)">
+        <div id="postDraftBar" hidden style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;border:2px solid var(--line);border-radius:10px;background:var(--paper);font-size:13px">
+          <span id="postDraftMsg" style="flex:1;min-width:160px"></span>
+          <button type="button" id="postDraftResume" onclick="restoreSavedDraft()" style="border:none;border-radius:8px;background:var(--sea);color:#fff;font-weight:700;padding:8px 12px;font-size:13px"></button>
+          <button type="button" id="postDraftDiscard" onclick="dismissSavedDraft()" style="border:none;background:none;color:var(--mute);font-size:12px;padding:8px 4px"></button>
+        </div>
         <div class="form-grid">
           <div class="field full" id="postPhotosField">
             <label data-i18n="photosLabel">Photos</label>
@@ -2157,6 +2164,10 @@
               <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.16.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
               <span data-i18n="freeGoogle">Créer gratuitement avec Google</span>
             </button>
+            <button type="button" class="social-btn apple" onclick="socialAuth('apple')">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.5 12.2c0-2.1 1.7-3.1 1.8-3.2-1-1.5-2.5-1.7-3-1.7-1.3-.1-2.5.8-3.1.8-.7 0-1.7-.8-2.8-.7-1.4 0-2.7.8-3.4 2.1-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.7.7 2.8.7c1.2 0 1.9-1 2.6-2.1.8-1.2 1.2-2.4 1.2-2.5 0 0-2.3-.9-2.3-3.3ZM14.4 5.9c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.6.6-1 1.6-.9 2.6.9.1 1.9-.5 2.5-1.2Z"/></svg>
+              <span data-i18n="freeApple">Créer gratuitement avec Apple</span>
+            </button>
           </div>
           <div class="social-divider"><span data-i18n="createWithEmail">ou créez votre compte avec email</span></div>
           <input id="accountType" class="account-type-hidden" type="hidden" value="personal">
@@ -2212,6 +2223,10 @@
               <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.16.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
               <span data-i18n="proGoogle">Continuer Pro avec Google</span>
             </button>
+            <button type="button" class="social-btn apple" onclick="startProSocialAuth('apple')">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.5 12.2c0-2.1 1.7-3.1 1.8-3.2-1-1.5-2.5-1.7-3-1.7-1.3-.1-2.5.8-3.1.8-.7 0-1.7-.8-2.8-.7-1.4 0-2.7.8-3.4 2.1-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.7.7 2.8.7c1.2 0 1.9-1 2.6-2.1.8-1.2 1.2-2.4 1.2-2.5 0 0-2.3-.9-2.3-3.3ZM14.4 5.9c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.6.6-1 1.6-.9 2.6.9.1 1.9-.5 2.5-1.2Z"/></svg>
+              <span data-i18n="proApple">Continuer Pro avec Apple</span>
+            </button>
           </div>
           <div class="pro-explainer"><small data-i18n="proPlansHint">Comparez le nombre d'annonces, les boosts et la visibilité avant de choisir.</small><button type="button" class="auth-pricing-link" onclick="closeModal('accountModal');openPricingInfo()" data-i18n="viewProPlans">Découvrir tous les comptes Pro</button></div>
         </section>
@@ -2227,6 +2242,10 @@
             <button type="button" class="social-btn google" onclick="socialAuth('google')">
               <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.16.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
               <span data-i18n="socialGoogle">Continuer avec Google</span>
+            </button>
+            <button type="button" class="social-btn apple" onclick="socialAuth('apple')">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.5 12.2c0-2.1 1.7-3.1 1.8-3.2-1-1.5-2.5-1.7-3-1.7-1.3-.1-2.5.8-3.1.8-.7 0-1.7-.8-2.8-.7-1.4 0-2.7.8-3.4 2.1-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.7.7 2.8.7c1.2 0 1.9-1 2.6-2.1.8-1.2 1.2-2.4 1.2-2.5 0 0-2.3-.9-2.3-3.3ZM14.4 5.9c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.6.6-1 1.6-.9 2.6.9.1 1.9-.5 2.5-1.2Z"/></svg>
+              <span data-i18n="socialApple">Continuer avec Apple</span>
             </button>
           </div>
           <div class="social-divider"><span data-i18n="loginWithEmail">ou connectez-vous avec email</span></div>
@@ -2635,6 +2654,7 @@
 <script src="supabase-config.js"></script>
 <script src="supabase-api.js"></script>
 <script src="img-utils.js"></script>
+<script src="draft-store.js"></script>
 
 <script>
 /* ---------------- DATA ---------------- */
@@ -2933,7 +2953,7 @@ function usesVehicleFields(cat, sub){
 
 const I18N = {
   fr:{searchPh:"Que cherchez-vous ?",searchBtn:"Rechercher",postAd:"Déposer une annonce",postShort:"Déposer",favoris:"Favoris",messages:"Messages",
-  socialGoogle:"Continuer avec Google",socialOr:"ou",
+  socialGoogle:"Continuer avec Google",socialApple:"Continuer avec Apple",socialOr:"ou",
   inboxPick:"Choisissez une conversation pour répondre.",inboxSend:"Envoyer",inboxViewListing:"Voir l'annonce",inboxWrite:"Écrivez votre réponse…",
   notifLabel:"Alertes",notifTitle:"Notifications",notifClear:"Tout effacer",
       pricingLabel:"Tarifs",loginLabel:"Login",pricingKicker:"Gratuit pour vendre, payant pour les pros",pricingTitle:"Tarifs",pricingIntro:"Créer un compte est gratuit. Publier et vendre vos objets personnels est gratuit. Les plans payants sont des abonnements pour les pros qui veulent plus de visibilité.",pricingPlansTitle:"Types de compte",pricingFreeNote:"Personal Free permet de publier gratuitement vos annonces personnelles. Les abonnements Pro ajoutent des outils business, des boosts et plus de visibilité.",authFreeTitle:"Créer un compte gratuit",authFreeText:"Publier une annonce personnelle reste gratuit. Les options Pro sont séparées dans Tarifs.",authBadge:"Gratuit",createKicker:"Nouveau compte",loginKicker:"Connexion rapide",
@@ -2961,7 +2981,7 @@ const I18N = {
       getH:"Déposez votre première annonce aujourd'hui",getP:"C'est gratuit, c'est local, et votre voisin cherche sans doute déjà ce que vous vendez.",leaderAdTitle:"Assistance digitale pour votre business",leaderAdText:"Un emplacement premium pour les services, boutiques et offres locales qui veulent être vus sur toute l'île.",leaderAdCta:"En savoir plus",sponsoredTitle:"Boostez votre annonce",sponsoredText:"Option payante: mettez votre annonce en avant sur la page d'accueil pour toucher plus d'acheteurs à Saint-Martin et Sint Maarten.",sponsoredCta:"Mettre en avant",adLabel:"Pub",mobileAdTop:"Espace AdMob mobile",mobileAdFeed:"Annonce sponsorisée dans le fil",mobileAdBottom:"Annonce mobile sponsorisée",
       dlOn:"Télécharger sur",getOn:"Disponible sur"},
   en:{searchPh:"What are you looking for?",searchBtn:"Search",postAd:"Post an ad",postShort:"Post",favoris:"Saved",messages:"Messages",
-  socialGoogle:"Continue with Google",socialOr:"or",
+  socialGoogle:"Continue with Google",socialApple:"Continue with Apple",socialOr:"or",
   inboxPick:"Pick a conversation to reply.",inboxSend:"Send",inboxViewListing:"View listing",inboxWrite:"Write your reply…",
   notifLabel:"Alerts",notifTitle:"Notifications",notifClear:"Clear all",
       pricingLabel:"Pricing",loginLabel:"Login",pricingKicker:"Free to sell, paid for pros",pricingTitle:"Pricing",pricingIntro:"Creating an account is free. Posting and selling your personal items is free. Paid plans are subscriptions for pros who want more visibility.",pricingPlansTitle:"Account types",pricingFreeNote:"Personal Free lets you publish personal listings for free. Pro subscriptions add business tools, boosts, and more visibility.",authFreeTitle:"Create a free account",authFreeText:"Posting a personal listing stays free. Pro options live separately in Pricing.",authBadge:"Free",createKicker:"New account",loginKicker:"Fast login",
@@ -3310,17 +3330,17 @@ Object.assign(I18N.en, {
 
 Object.assign(I18N.fr, {
   authFreeTitle:"Choisissez votre compte", authFreeText:"Un compte particulier reste gratuit. Un compte Pro ajoute des outils business avec un abonnement.", authBadge:"Inscription sécurisée",
-  createKicker:"Compte particulier", newAccountTitle:"Créer un compte gratuit", newAccountHelp:"Pour vendre vos propres objets, publier gratuitement et discuter avec les acheteurs.", loginKicker:"Connexion", freeGoogle:"Créer gratuitement avec Google", createWithEmail:"ou créez votre compte avec email",
+  createKicker:"Compte particulier", newAccountTitle:"Créer un compte gratuit", newAccountHelp:"Pour vendre vos propres objets, publier gratuitement et discuter avec les acheteurs.", loginKicker:"Connexion", freeGoogle:"Créer gratuitement avec Google", freeApple:"Créer gratuitement avec Apple", createWithEmail:"ou créez votre compte avec email",
   proKicker:"Pour les entreprises", proAccountTitle:"Créer un compte Pro", proAccountHelp:"Pour les commerces et vendeurs réguliers qui veulent plus d'annonces, de visibilité et d'outils.",
   proBenefit1:"Page business et badge Pro", proBenefit2:"Plus d'annonces et de visibilité", proBenefit3:"Abonnement requis avant publication Pro",
-  proGoogle:"Continuer Pro avec Google", proPlansHint:"Comparez le nombre d'annonces, les boosts et la visibilité avant de choisir.", viewProPlans:"Découvrir tous les comptes Pro"
+  proGoogle:"Continuer Pro avec Google", proApple:"Continuer Pro avec Apple", proPlansHint:"Comparez le nombre d'annonces, les boosts et la visibilité avant de choisir.", viewProPlans:"Découvrir tous les comptes Pro"
 });
 Object.assign(I18N.en, {
   authFreeTitle:"Choose your account", authFreeText:"A personal account stays free. A Pro account adds business tools with a subscription.", authBadge:"Secure sign-up",
-  createKicker:"Personal account", newAccountTitle:"Create a free account", newAccountHelp:"Sell your own items, post for free, and chat with buyers.", loginKicker:"Log in", freeGoogle:"Create free with Google", createWithEmail:"or create your account with email",
+  createKicker:"Personal account", newAccountTitle:"Create a free account", newAccountHelp:"Sell your own items, post for free, and chat with buyers.", loginKicker:"Log in", freeGoogle:"Create free with Google", freeApple:"Create free with Apple", createWithEmail:"or create your account with email",
   proKicker:"For businesses", proAccountTitle:"Create a Pro account", proAccountHelp:"For businesses and regular sellers who need more listings, visibility, and tools.",
   proBenefit1:"Business page and Pro badge", proBenefit2:"More listings and visibility", proBenefit3:"Subscription required before Pro publishing",
-  proGoogle:"Continue Pro with Google", proPlansHint:"Compare listing limits, boosts, and visibility before choosing.", viewProPlans:"Explore all Pro accounts"
+  proGoogle:"Continue Pro with Google", proApple:"Continue Pro with Apple", proPlansHint:"Compare listing limits, boosts, and visibility before choosing.", viewProPlans:"Explore all Pro accounts"
 });
 
 const G = {
@@ -6269,6 +6289,7 @@ function openPostModal(){
   editingListingId = null;
   buildPostForm();
   openModal("postModal");
+  maybeOfferDraftRestore();
 }
 
 function setPostModalMode(isEditing){
@@ -6689,7 +6710,8 @@ async function confirmDemoPayment(e){
 }
 
 async function socialAuth(provider){
-  if(provider !== "google"){
+  const providerLabels = {google:"Google", apple:"Apple"};
+  if(!providerLabels[provider]){
     showToast(state.lang==="fr" ? "Ce mode de connexion n'est pas disponible." : "This sign-in method is not available.");
     return;
   }
@@ -6699,9 +6721,10 @@ async function socialAuth(provider){
   }
   const enabledProviders = window.SUPABASE_OAUTH_PROVIDERS || {};
   if(!enabledProviders[provider]){
+    const providerName = providerLabels[provider];
     showToast(state.lang==="fr"
-      ? "Google login doit d'abord être activé dans Supabase."
-      : "Google login must be enabled in Supabase first.");
+      ? `${providerName} login doit d'abord être activé dans Supabase.`
+      : `${providerName} login must be enabled in Supabase first.`);
     return;
   }
   const { error } = await SB.signInWithOAuth(provider);
@@ -6709,17 +6732,25 @@ async function socialAuth(provider){
   // succès: Supabase redirige vers ce même onglet; onAuthChange() reprend la main au retour.
 }
 
-function startProGoogleAuth(){
+function startProSocialAuth(provider){
   sessionStorage.setItem("bst-auth-intent", "pro");
-  socialAuth("google");
+  sessionStorage.setItem("bst-auth-provider", provider);
+  socialAuth(provider);
+}
+
+function startProGoogleAuth(){
+  startProSocialAuth("google");
 }
 
 function continuePendingProGoogle(){
   if(sessionStorage.getItem("bst-auth-intent") !== "pro") return;
+  const provider = sessionStorage.getItem("bst-auth-provider") || "google";
+  const providerName = provider === "apple" ? "Apple" : "Google";
   sessionStorage.removeItem("bst-auth-intent");
+  sessionStorage.removeItem("bst-auth-provider");
   closeModal("accountModal");
   openPricingInfo();
-  showToast(state.lang === "fr" ? "Compte Google connecté. Choisissez maintenant votre abonnement Pro." : "Google account connected. Now choose your Pro subscription.");
+  showToast(state.lang === "fr" ? `Compte ${providerName} connecté. Choisissez maintenant votre abonnement Pro.` : `${providerName} account connected. Now choose your Pro subscription.`);
 }
 
 function continueSelectedProPlan(){
@@ -6866,6 +6897,111 @@ function wirePostFormEvents(){
   document.getElementById("newCat")?.addEventListener("change", buildPostSubcats);
   document.getElementById("newSubcat")?.addEventListener("change", handlePostSubcatChange);
   document.getElementById("newArea")?.addEventListener("change", syncPostSideFromArea);
+  const form = document.getElementById("postForm");
+  if(form){
+    form.addEventListener("input", scheduleDraftSave);
+    form.addEventListener("change", scheduleDraftSave);
+  }
+}
+
+/* ---------------- OFFLINE DRAFT (post flow) ----------------
+ * Autosaves the in-progress listing (fields + compressed photos) to IndexedDB
+ * so a dropped connection or a closed tab doesn't lose the work. Only for NEW
+ * listings — never while editing an existing one. */
+let draftSaveTimer = null;
+
+function collectPostDraft(){
+  const g = id => document.getElementById(id);
+  return {
+    t: g("newTitle")?.value || "",
+    cat: g("newCat")?.value || "",
+    sub: g("newSubcatField")?.hidden ? "" : (g("newSubcat")?.value || ""),
+    area: g("newArea")?.value || "",
+    price: g("newPrice") ? g("newPrice").value : "",
+    cur: g("newCur")?.value || "",
+    cond: g("newCond") ? g("newCond").value : "",
+    negotiable: !!g("newNegotiable")?.checked,
+    urgent: !!g("newUrgent")?.checked,
+    safeMeet: !!g("newSafeMeet")?.checked,
+    desc: g("newDesc")?.value || "",
+    vehicle: g("newVehicleYear") ? {
+      year: g("newVehicleYear").value, km: g("newVehicleKm").value,
+      color: g("newVehicleColor").value, fuel: g("newVehicleFuel").value,
+      transmission: g("newVehicleTransmission").value
+    } : null,
+    photos: Array.isArray(selectedPostPhotos) ? [...selectedPostPhotos] : []
+  };
+}
+
+function draftHasContent(d){
+  return !!(d && ((d.t && d.t.trim()) || (d.desc && d.desc.trim()) ||
+    (d.price && String(d.price).trim()) || (d.photos && d.photos.length)));
+}
+
+function scheduleDraftSave(){
+  if(editingListingId || !window.Drafts || !Drafts.enabled) return;
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(()=>{
+    const d = collectPostDraft();
+    if(draftHasContent(d)) Drafts.save(d);
+  }, 700);
+}
+
+function maybeOfferDraftRestore(){
+  const bar = document.getElementById("postDraftBar");
+  if(!bar) return;
+  bar.hidden = true;
+  if(editingListingId || !window.Drafts || !Drafts.enabled) return;
+  Drafts.peek().then(meta=>{
+    if(!meta) return;
+    const resume = document.getElementById("postDraftResume");
+    const discard = document.getElementById("postDraftDiscard");
+    const msg = document.getElementById("postDraftMsg");
+    if(resume) resume.textContent = state.lang==="fr" ? "Reprendre" : "Resume";
+    if(discard) discard.textContent = state.lang==="fr" ? "Supprimer" : "Discard";
+    if(msg) msg.textContent = (state.lang==="fr"
+      ? "Brouillon non publié — enregistré "
+      : "Unpublished draft — saved ") + draftAgeText(meta.savedAt);
+    bar.hidden = false;
+  });
+}
+
+function draftAgeText(ts){
+  const mins = Math.max(0, Math.round((Date.now() - (ts||0)) / 60000));
+  if(mins < 1) return state.lang==="fr" ? "à l'instant" : "just now";
+  if(mins < 60) return state.lang==="fr" ? `il y a ${mins} min` : `${mins} min ago`;
+  const h = Math.round(mins/60);
+  if(h < 24) return state.lang==="fr" ? `il y a ${h} h` : `${h}h ago`;
+  const dys = Math.round(h/24);
+  return state.lang==="fr" ? `il y a ${dys} j` : `${dys}d ago`;
+}
+
+async function restoreSavedDraft(){
+  if(!window.Drafts) return;
+  const d = await Drafts.load();
+  const bar = document.getElementById("postDraftBar");
+  if(bar) bar.hidden = true;
+  if(!d) return;
+  fillPostForm(d);
+  selectedPostPhotos = Array.isArray(d.photos) ? [...d.photos] : [];
+  selectedPostFiles = [];
+  renderPhotoPreview();
+  if(selectedPostPhotos.length && Drafts.dataUrlToFile){
+    Promise.all(selectedPostPhotos.map((u,i)=>Drafts.dataUrlToFile(u, `photo-${i+1}.jpg`)))
+      .then(files=>{ selectedPostFiles = files.filter(Boolean); });
+  }
+  showToast(state.lang==="fr" ? "Brouillon restauré" : "Draft restored");
+}
+
+function dismissSavedDraft(){
+  const bar = document.getElementById("postDraftBar");
+  if(bar) bar.hidden = true;
+  if(window.Drafts) Drafts.clear();
+}
+
+function clearPostDraft(){
+  clearTimeout(draftSaveTimer);
+  if(window.Drafts) Drafts.clear();
 }
 
 function buildPostSubcats(){
@@ -7031,6 +7167,7 @@ async function handlePhotoUpload(e){
     })));
   }
   renderPhotoPreview();
+  scheduleDraftSave();
 }
 
 function renderPhotoPreview(){
@@ -7045,6 +7182,7 @@ function removePostPhoto(index){
   selectedPostPhotos.splice(index, 1);
   selectedPostFiles.splice(index, 1);
   renderPhotoPreview();
+  scheduleDraftSave();
 }
 
 async function createListing(e){
@@ -7146,6 +7284,7 @@ async function createListing(e){
   selectedPostPhotos = [];
   selectedPostFiles = [];
   editingListingId = null;
+  clearPostDraft();
   setPostModalMode(false);
   document.getElementById("photoPreview").innerHTML = "";
   closeModal("postModal");

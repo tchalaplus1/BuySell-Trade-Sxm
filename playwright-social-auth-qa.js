@@ -28,6 +28,19 @@ const { chromium } = require("playwright");
   await page.goto("http://localhost:5173/", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: /login/i }).first().click();
   await page.locator("#accountModal.open").waitFor();
+  const appleBeforeUrl = page.url();
+  await page.getByRole("button", { name: /Apple/i }).first().click();
+  await page.waitForTimeout(1500);
+  const appleAfterUrl = page.url();
+  results.push({ provider: "Apple", beforeUrl: appleBeforeUrl, afterUrl: appleAfterUrl });
+  if (!appleAfterUrl.includes("/auth/v1/authorize") &&
+      !appleAfterUrl.includes("appleid.apple.com")) {
+    errors.push("Apple click did not start the Supabase OAuth flow.");
+  }
+
+  await page.goto("http://localhost:5173/", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /login/i }).first().click();
+  await page.locator("#accountModal.open").waitFor();
   const removedSocialProvider = "Face" + "book";
   const removedProviderButtonCount = await page.getByRole("button", { name: new RegExp(removedSocialProvider, "i") }).count();
   results.push({ provider: "removed social provider", visibleButtons: removedProviderButtonCount });

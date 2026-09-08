@@ -21,6 +21,7 @@
     "test:messenger-inbox": "node playwright-messenger-inbox-qa.js",
     "test:notifications": "node playwright-notifications-qa.js",
     "test:auto-boost": "node playwright-auto-boost-qa.js",
+    "test:draft": "node scripts/draft-check.js",
     "test:pwa": "node scripts/pwa-check.js",
     "supabase:enable-google-auth": "node scripts/enable-google-auth.js",
     "supabase:enable-google-auth-local": "node scripts/enable-google-auth.js --local-only",

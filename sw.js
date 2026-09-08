@@ -11,7 +11,7 @@
  *
  * Bump CACHE_VERSION on any change here to force a clean cache swap.
  */
-const CACHE_VERSION = 'bst-v2';
+const CACHE_VERSION = 'bst-v3';
 const APP_SHELL = `app-shell-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 const FONTS = `fonts-${CACHE_VERSION}`;
@@ -24,6 +24,7 @@ const PRECACHE_URLS = [
   '/manifest.webmanifest',
   '/pwa.js',
   '/img-utils.js',
+  '/draft-store.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/favicon-32.png',
