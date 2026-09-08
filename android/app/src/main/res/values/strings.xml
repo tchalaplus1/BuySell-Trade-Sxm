@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Buy Sell Trade SXM</string>
+    <string name="title_activity_main">Buy Sell Trade SXM</string>
+    <string name="package_name">com.tchalaplus.mobile</string>
+    <string name="custom_url_scheme">com.tchalaplus.mobile</string>
+</resources>
