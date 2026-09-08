@@ -72,7 +72,13 @@ adb shell monkey -p com.tchalaplus.mobile -c android.intent.category.LAUNCHER 1
 
 The iOS project is in `ios/`.
 
-iOS can only be opened and built on a Mac with Xcode:
+iOS cloud builds without a personal Mac are documented here:
+
+```text
+IOS_CLOUD_BUILD.md
+```
+
+iOS can only be opened and built locally on a Mac with Xcode:
 
 ```bash
 npm run cap:open:ios
