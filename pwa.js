@@ -35,6 +35,13 @@
         reloaded = true;
         window.location.reload();
       });
+
+      // (the push-nav SW->page message is handled in push-notifications.js)
+
+      // Keep the stored push subscription fresh (endpoints rotate).
+      if (window.Push && Push.supported && Push.supported()) {
+        setTimeout(function () { Push.syncEndpoint(); }, 4000);
+      }
     });
   }
 

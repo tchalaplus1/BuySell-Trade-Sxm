@@ -153,6 +153,17 @@
   }
   .notif-panel-head b{font-size:13px;}
   .notif-clear{font-size:11.5px;font-weight:700;color:var(--sea-deep);text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
+  .notif-push{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:10px 13px;border-bottom:2px solid var(--line);background:var(--white);
+  }
+  .notif-push span{font-size:12px;color:var(--mute);line-height:1.25;}
+  .notif-push button{
+    flex:0 0 auto;border:2px solid var(--line);border-radius:8px;
+    padding:7px 10px;background:var(--sun);font-size:11.5px;font-weight:800;cursor:pointer;
+  }
+  .notif-push button.is-on{background:var(--sea);color:var(--white);}
+  .notif-push button:disabled{opacity:.55;cursor:not-allowed;background:var(--paper);}
   .notif-list{overflow-y:auto;display:flex;flex-direction:column;}
   .notif-empty{padding:22px 14px;color:var(--mute);font-size:13px;text-align:center;}
   .notif-item{
@@ -183,7 +194,7 @@
   .notif-action.sold{background:var(--sea);color:var(--white);}
   .notif-action.delete{background:var(--danger-soft);}
   @media (max-width:640px){
-    .notif-panel{position:fixed;top:auto;bottom:10px;left:10px;right:10px;width:auto;max-height:60vh;}
+    .notif-panel{position:fixed;top:auto;bottom:calc(92px + env(safe-area-inset-bottom));left:10px;right:10px;width:auto;max-height:54vh;}
   }
   .avatar-dot{
     width:24px;height:24px;border-radius:50%;
@@ -1361,13 +1372,18 @@
     background:var(--paper);border-top:2px solid var(--line);
     padding:7px 10px calc(7px + env(safe-area-inset-bottom));
   }
-  .mobile-nav-inner{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}
+  .mobile-nav-inner{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
   .mobile-nav button,.mobile-nav a{
     display:flex;flex-direction:column;align-items:center;gap:2px;
     min-height:48px;
     border-radius:9px;padding:7px 4px;font-size:11px;font-weight:700;color:var(--mute);
   }
   .mobile-nav .hot{background:var(--sun);color:var(--ink);border:2px solid var(--line);}
+  .mobile-nav .n{
+    min-width:16px;height:16px;border-radius:9px;padding:0 4px;
+    display:inline-flex;align-items:center;justify-content:center;
+    background:var(--coral);color:var(--white);font-size:10px;font-weight:800;
+  }
 
   @media (max-width:1180px){
     .grid{grid-template-columns:repeat(3,1fr);}
@@ -1827,6 +1843,10 @@
             <b data-i18n="notifTitle">Notifications</b>
             <button type="button" class="notif-clear" onclick="clearNotifications()" data-i18n="notifClear">Tout effacer</button>
           </div>
+          <div class="notif-push" id="pushControl" hidden>
+            <span id="pushStatusText" data-i18n="pushDefault">Recevoir les alertes sur cet appareil</span>
+            <button type="button" id="pushToggle" onclick="togglePushNotifications(event)" data-i18n="pushEnable">Activer</button>
+          </div>
           <div class="notif-list" id="notifList"></div>
         </div>
       </span>
@@ -2005,6 +2025,7 @@
     <button type="button" class="hot" onclick="openPostModal()"><span aria-hidden="true">+</span><span data-i18n="postShort">Déposer</span></button>
     <button type="button" onclick="openPricingInfo()"><span aria-hidden="true">$</span><span data-i18n="pricingLabel">Pricing</span></button>
     <button type="button" onclick="openMessages()"><span aria-hidden="true">&#9993;</span><span data-i18n="messages">Messages</span></button>
+    <button type="button" onclick="toggleNotifPanel(event)"><span aria-hidden="true">&#128276;</span><span data-i18n="notifLabel">Alertes</span><span class="n" id="mobileNotifCount" hidden>0</span></button>
     <button type="button" onclick="openProfile()"><span aria-hidden="true">&#9673;</span><span id="mobileProfileLabel" data-i18n="profileLabel">Profil</span></button>
   </div>
 </nav>
@@ -2655,6 +2676,8 @@
 <script src="supabase-api.js"></script>
 <script src="img-utils.js"></script>
 <script src="draft-store.js"></script>
+<script src="push-config.js"></script>
+<script src="push-notifications.js"></script>
 
 <script>
 /* ---------------- DATA ---------------- */
@@ -2955,7 +2978,7 @@ const I18N = {
   fr:{searchPh:"Que cherchez-vous ?",searchBtn:"Rechercher",postAd:"Déposer une annonce",postShort:"Déposer",favoris:"Favoris",messages:"Messages",
   socialGoogle:"Continuer avec Google",socialApple:"Continuer avec Apple",socialOr:"ou",
   inboxPick:"Choisissez une conversation pour répondre.",inboxSend:"Envoyer",inboxViewListing:"Voir l'annonce",inboxWrite:"Écrivez votre réponse…",
-  notifLabel:"Alertes",notifTitle:"Notifications",notifClear:"Tout effacer",
+  notifLabel:"Alertes",notifTitle:"Notifications",notifClear:"Tout effacer",pushDefault:"Recevoir les alertes sur cet appareil",pushLogin:"Connectez-vous pour activer les alertes.",pushOn:"Alertes activées sur cet appareil.",pushReady:"Alertes prêtes. Appuyez sur Activer.",pushDenied:"Alertes bloquées dans le navigateur.",pushUnsupported:"Alertes non disponibles sur ce navigateur.",pushEnable:"Activer",pushDisable:"Désactiver",
       pricingLabel:"Tarifs",loginLabel:"Login",pricingKicker:"Gratuit pour vendre, payant pour les pros",pricingTitle:"Tarifs",pricingIntro:"Créer un compte est gratuit. Publier et vendre vos objets personnels est gratuit. Les plans payants sont des abonnements pour les pros qui veulent plus de visibilité.",pricingPlansTitle:"Types de compte",pricingFreeNote:"Personal Free permet de publier gratuitement vos annonces personnelles. Les abonnements Pro ajoutent des outils business, des boosts et plus de visibilité.",authFreeTitle:"Créer un compte gratuit",authFreeText:"Publier une annonce personnelle reste gratuit. Les options Pro sont séparées dans Tarifs.",authBadge:"Gratuit",createKicker:"Nouveau compte",loginKicker:"Connexion rapide",otpSentText:"Nous avons envoyé un code à votre email. Entrez-le ci-dessous pour activer votre compte.",otpCodeLabel:"Code de confirmation",otpConfirm:"Confirmer le code",otpResend:"Renvoyer le code",otpInvalid:"Code invalide ou expiré.",otpConfirmed:"Compte confirmé - bienvenue.",otpResent:"Nouveau code envoyé.",freeCreateAccount:"Créer un compte est gratuit.",freePostListing:"Publier quelque chose à vendre est gratuit.",freePersonalSelling:"Vendre vos objets personnels est gratuit.",loginWithEmail:"ou connectez-vous avec email",
       filters:"Filtres",filtersHint:"Trouvez plus vite l'annonce qui vous convient.",price:"Prix",side:"Côté de l'île",condition:"État",subcategoryLabel:"Sous-catégorie",allSubcategories:"Toutes les sous-catégories",sellerTypeLabel:"Type de vendeur",availabilityLabel:"Disponibilité",handoverFilterLabel:"Remise du produit",moreCriteria:"Autres critères",allSellers:"Tous les vendeurs",individualSeller:"Particuliers",professionalSeller:"Professionnels",allStatuses:"Tous les statuts",availableOnly:"Disponible maintenant",reservedOnly:"Réservé",soldOnly:"Vendu",allHandovers:"Tous les modes",urgentOnly:"Ventes urgentes",negotiableOnly:"Prix négociables",deliveryOnly:"Livraison disponible",resetFilters:"Tout effacer",activeFilters:n=>`${n} actif${n>1?"s":""}`,showResults:n=>`Voir ${n} annonce${n===1?"":"s"}`,filterSearch:"Rechercher",
       allIsland:"Toute l'île",browseLabel:"Parcourir",listingLabel:"Annonce",titleLabel:"Titre",titlePh:"Ex: Scooter 125 en bon état",categoryLabel:"Catégorie",areaLabel:"Zone",currencyLabel:"Devise",photosLabel:"Photos",uploadPhotos:"Ajouter des photos",photosHelp:"Ajoutez jusqu'à 8 photos réelles de l'objet. La première photo sera utilisée comme image principale.",deliveryLabel:"Remise",pickupOnly:"Retrait uniquement",deliveryPossible:"Livraison possible",meetupPossible:"Rendez-vous possible",meetupLabel:"Lieu préféré",publicMeetup:"Lieu public",sellerPlace:"Chez le vendeur",buyerPlace:"Chez l'acheteur",negotiableLabel:"Prix négociable",urgentSaleLabel:"Vente urgente",safeMeetLabel:"Rendez-vous sécurisé",photoRequired:"Ajoutez au moins une photo réelle pour publier.",tooManyPhotos:"Maximum 8 photos par annonce.",sideLabel:"Côté",descLabel:"Description",descPh:"Ajoutez les détails utiles: état, quantité, livraison et point de rendez-vous",postSubmit:"Publier l'annonce",cancelLabel:"Annuler",sellerPro:"Vendeur pro",sellerLocal:"Vendeur local",quickMessage:"Chat avec le vendeur",chatOnline:"Réponse instantanée",chatPlaceholder:"Écrivez votre message au vendeur",chatSend:"Envoyer",sellerTyping:"Le vendeur répond...",instantReply:"Oui, c'est disponible. On peut s'organiser ici dans le chat.",loginToChat:"Connectez-vous pour envoyer un message au vendeur.",shareLabel:"Partager",shareTitle:"Partager cette annonce",shareHelp:"Copiez le lien ou envoyez-le directement pour que quelqu'un ouvre cette annonce.",copyLink:"Copier le lien",linkCopied:"Lien copié",shareText:"Regarde cette annonce sur Buy Sell Trade Sxm",shareFailed:"Impossible de partager. Le lien a été copié.",savedLabel:"Enregistré",saveLabel:"Enregistrer",removedToast:"Retiré",savedToast:"Enregistré",messageReady:"Message envoyé",listingPublished:"Annonce publiée",defaultMessage:"Bonjour, votre annonce est-elle toujours disponible ?",subcatHint:"Affinez sans perdre le fil.",footerMarket:"Marketplace",footerTrust:"Confiance & sécurité",footerLang:"Français et anglais",profileLabel:"Profil",profileTitle:"Mon profil",profileRequired:"Connectez-vous pour voir votre profil.",memberSince:"Membre depuis",verifiedEmail:"Email vérifié",trustedMember:"Membre de confiance",fastReply:"Réponse rapide",profileListings:"Mes annonces",profileNoListings:"Vous n'avez pas encore publié d'annonce.",activeListings:"Annonces",savedItems:"Favoris",conversations:"Messages",ratingLabel:"Note",editProfile:"Modifier le profil",logoutLabel:"Se déconnecter",boostPageTitle:"Boost & Pro",boostKicker:"Visibilité payante",boostHeroTitle:"Faites voir vos annonces aux bons acheteurs",boostHeroText:"Les annonces classiques restent gratuites pour les particuliers. Les boosts et comptes Pro sont des options payantes pour vendre plus vite, afficher plus d'annonces et obtenir plus de contacts.",boostFreeTitle:"Annonce gratuite",boostFreeText:"Pour vendre un objet occasionnellement: photos, prix, quartier, chat avec l'acheteur et partage du lien.",boostPaidTitle:"Boost payant",boostPaidText:"Le vendeur choisit une annonce, sélectionne une durée de mise en avant, paie, puis l'annonce reçoit le badge Sponsorisé et apparaît plus haut sur la page.",boostProTitle:"Compte Pro business",boostProText:"Pour les commerces: page business, badge Pro, plus d'annonces, statistiques, messages centralisés et options de visibilité régulières.",boostStepsTitle:"Comment ça marche",boostStep1:"Choisir l'annonce à promouvoir.",boostStep2:"Choisir la durée: 3, 7 ou 14 jours.",boostStep3:"Payer avant l'activation.",boostStep4:"Suivre les vues, favoris et messages.",boostPaymentTitle:"Paiement requis",boostPaymentText:"Aucune annonce n'est mise en avant sans paiement confirmé. Les prix seront ajoutés avant le lancement officiel.",boostTrustTitle:"Confiance vendeur",boostTrustText:"Après une discussion ou une vente, les acheteurs pourront noter le vendeur. Les profils sérieux seront plus rassurants pour les prochains acheteurs.",boostPriceSoon:"Prix à définir",boostPriceText:"On peut déjà construire le parcours paiement avec des prix temporaires masqués, puis brancher Stripe quand les tarifs sont validés.",accountTitle:"Compte requis",newAccountTitle:"Nouveau sur Buy Sell Trade Sxm",newAccountHelp:"Créez un compte particulier ou professionnel pour publier, gérer vos messages et protéger la communauté.",loginTitle:"J'ai déjà un compte",loginHelp:"Connectez-vous pour reprendre vos annonces, vos favoris et vos conversations.",passwordLabel:"Mot de passe",confirmPasswordLabel:"Confirmer le mot de passe",accountTypeLabel:"Type de compte",personalAccount:"Particulier",businessAccount:"Professionnel",businessNameLabel:"Nom du commerce",passwordMismatch:"Les mots de passe ne correspondent pas.",emailExists:"Un compte existe déjà avec cet email.",invalidLogin:"Email ou mot de passe incorrect.",loginSubmit:"Se connecter",loginToast:"Connexion réussie",accountName:"Nom",accountEmail:"Email",accountHelp:"Un compte est obligatoire pour déposer une annonce, contacter un vendeur et protéger la communauté.",accountSubmit:"Créer mon compte",comingSoon:"Bientôt disponible",storeAvailable:"Disponible",safetyBanner:"Objets illégaux interdits: armes, drogues, contrefaçons et articles dangereux. Toute violation peut entraîner un bannissement définitif.",illegalPolicy:"Les objets illégaux, armes, drogues, contrefaçons, produits volés et articles dangereux sont strictement interdits. Les comptes en infraction peuvent être supprimés et bannis définitivement.",
@@ -2982,7 +3005,7 @@ const I18N = {
   en:{searchPh:"What are you looking for?",searchBtn:"Search",postAd:"Post an ad",postShort:"Post",favoris:"Saved",messages:"Messages",
   socialGoogle:"Continue with Google",socialApple:"Continue with Apple",socialOr:"or",
   inboxPick:"Pick a conversation to reply.",inboxSend:"Send",inboxViewListing:"View listing",inboxWrite:"Write your reply…",
-  notifLabel:"Alerts",notifTitle:"Notifications",notifClear:"Clear all",
+  notifLabel:"Alerts",notifTitle:"Notifications",notifClear:"Clear all",pushDefault:"Receive alerts on this device",pushLogin:"Log in to turn on alerts.",pushOn:"Alerts are on for this device.",pushReady:"Alerts are ready. Tap Enable.",pushDenied:"Alerts are blocked in the browser.",pushUnsupported:"Alerts are not available in this browser.",pushEnable:"Enable",pushDisable:"Turn off",
       pricingLabel:"Pricing",loginLabel:"Login",pricingKicker:"Free to sell, paid for pros",pricingTitle:"Pricing",pricingIntro:"Creating an account is free. Posting and selling your personal items is free. Paid plans are subscriptions for pros who want more visibility.",pricingPlansTitle:"Account types",pricingFreeNote:"Personal Free lets you publish personal listings for free. Pro subscriptions add business tools, boosts, and more visibility.",authFreeTitle:"Create a free account",authFreeText:"Posting a personal listing stays free. Pro options live separately in Pricing.",authBadge:"Free",createKicker:"New account",loginKicker:"Fast login",otpSentText:"We sent a code to your email. Enter it below to activate your account.",otpCodeLabel:"Confirmation code",otpConfirm:"Confirm code",otpResend:"Resend code",otpInvalid:"Invalid or expired code.",otpConfirmed:"Account confirmed - welcome.",otpResent:"New code sent.",freeCreateAccount:"Creating an account is free.",freePostListing:"Posting something for sale is free.",freePersonalSelling:"Selling your personal items is free.",loginWithEmail:"or log in with email",
       filters:"Filters",filtersHint:"Find the right listing faster.",price:"Price",side:"Side of the island",condition:"Condition",subcategoryLabel:"Subcategory",allSubcategories:"All subcategories",sellerTypeLabel:"Seller type",availabilityLabel:"Availability",handoverFilterLabel:"Item handover",moreCriteria:"More criteria",allSellers:"All sellers",individualSeller:"Individuals",professionalSeller:"Businesses",allStatuses:"All statuses",availableOnly:"Available now",reservedOnly:"Reserved",soldOnly:"Sold",allHandovers:"All handover options",urgentOnly:"Urgent listings",negotiableOnly:"Negotiable prices",deliveryOnly:"Delivery available",resetFilters:"Clear all",activeFilters:n=>`${n} active`,showResults:n=>`Show ${n} listing${n!==1?"s":""}`,filterSearch:"Search",
       allIsland:"Whole island",browseLabel:"Browse",listingLabel:"Listing",titleLabel:"Title",titlePh:"Ex: 125cc scooter in good condition",categoryLabel:"Category",areaLabel:"Area",currencyLabel:"Currency",photosLabel:"Photos",uploadPhotos:"Add photos",photosHelp:"Add up to 8 real photos of the item. The first photo becomes the main listing image.",deliveryLabel:"Handover",pickupOnly:"Pickup only",deliveryPossible:"Delivery possible",meetupPossible:"Meetup possible",meetupLabel:"Preferred place",publicMeetup:"Public place",sellerPlace:"Seller's place",buyerPlace:"Buyer's place",negotiableLabel:"Negotiable price",urgentSaleLabel:"Urgent sale",safeMeetLabel:"Safe meetup",photoRequired:"Add at least one real photo before publishing.",tooManyPhotos:"Maximum 8 photos per listing.",sideLabel:"Side",descLabel:"Description",descPh:"Add useful details: condition, quantity, delivery, and meeting point",postSubmit:"Publish listing",cancelLabel:"Cancel",sellerPro:"Professional seller",sellerLocal:"Local seller",quickMessage:"Chat with seller",chatOnline:"Instant reply",chatPlaceholder:"Write your message to the seller",chatSend:"Send",sellerTyping:"Seller is replying...",instantReply:"Yes, it is available. We can arrange everything here in the chat.",loginToChat:"Log in to message the seller.",shareLabel:"Share",shareTitle:"Share this listing",shareHelp:"Copy the link or send it directly so someone can open this listing.",copyLink:"Copy link",linkCopied:"Link copied",shareText:"Look at this listing on Buy Sell Trade Sxm",shareFailed:"Sharing was not available. The link was copied.",savedLabel:"Saved",saveLabel:"Save",removedToast:"Removed",savedToast:"Saved",messageReady:"Message sent",listingPublished:"Listing published",defaultMessage:"Hi, is this listing still available?",subcatHint:"Refine the search without losing your place.",footerMarket:"Marketplace",footerTrust:"Trust & safety",footerLang:"French and English",profileLabel:"Profile",profileTitle:"My profile",profileRequired:"Log in to view your profile.",memberSince:"Member since",verifiedEmail:"Verified email",trustedMember:"Trusted member",fastReply:"Fast reply",profileListings:"My listings",profileNoListings:"You have not posted a listing yet.",activeListings:"Listings",savedItems:"Saved",conversations:"Messages",ratingLabel:"Rating",editProfile:"Edit profile",logoutLabel:"Log out",boostPageTitle:"Boost & Pro",boostKicker:"Paid visibility",boostHeroTitle:"Put your listings in front of the right buyers",boostHeroText:"Regular listings stay free for individuals. Boosts and Pro accounts are paid options to sell faster, publish more listings, and get more contacts.",boostFreeTitle:"Free listing",boostFreeText:"For occasional selling: photos, price, area, buyer chat, and shareable listing link.",boostPaidTitle:"Paid boost",boostPaidText:"The seller chooses a listing, selects a promotion duration, pays, then the listing gets a Sponsored badge and appears higher on the page.",boostProTitle:"Pro business account",boostProText:"For local businesses: business page, Pro badge, more listings, analytics, centralized messages, and regular visibility options.",boostStepsTitle:"How it works",boostStep1:"Choose the listing to promote.",boostStep2:"Choose the duration: 3, 7, or 14 days.",boostStep3:"Pay before activation.",boostStep4:"Track views, saves, and messages.",boostPaymentTitle:"Payment required",boostPaymentText:"No listing is featured until payment is confirmed. Prices will be added before the official launch.",boostTrustTitle:"Seller trust",boostTrustText:"After a chat or sale, buyers can rate the seller. Serious profiles will feel safer for the next buyers.",boostPriceSoon:"Pricing to define",boostPriceText:"We can already build the payment flow with hidden temporary prices, then connect Stripe once pricing is approved.",accountTitle:"Account required",newAccountTitle:"New to Buy Sell Trade Sxm",newAccountHelp:"Create a personal or business account to post, manage messages, and protect the community.",loginTitle:"I already have an account",loginHelp:"Log in to continue with your listings, saved items, and conversations.",passwordLabel:"Password",confirmPasswordLabel:"Confirm password",accountTypeLabel:"Account type",personalAccount:"Personal",businessAccount:"Business",businessNameLabel:"Business name",passwordMismatch:"Passwords do not match.",emailExists:"An account already exists with this email.",invalidLogin:"Incorrect email or password.",loginSubmit:"Log in",loginToast:"Logged in",accountName:"Name",accountEmail:"Email",accountHelp:"An account is required to post a listing, contact a seller, and protect the community.",accountSubmit:"Create my account",comingSoon:"Coming soon",storeAvailable:"Available",safetyBanner:"Illegal items are prohibited: weapons, drugs, counterfeit goods, and dangerous items. Violations may result in a permanent ban.",illegalPolicy:"Illegal items, weapons, drugs, counterfeit goods, stolen products, and dangerous items are strictly prohibited. Accounts that break these rules may be removed and permanently banned.",
@@ -3613,11 +3636,58 @@ function unseenNotifCount(){
 }
 
 function refreshNotifBadge(){
-  const badge = document.getElementById("notifCount");
-  if(!badge) return;
   const n = unseenNotifCount();
-  badge.textContent = String(n);
-  badge.hidden = n === 0;
+  ["notifCount", "mobileNotifCount"].forEach(id=>{
+    const badge = document.getElementById(id);
+    if(!badge) return;
+    badge.textContent = String(n);
+    badge.hidden = n === 0;
+  });
+}
+
+async function refreshPushControl(){
+  const wrap = document.getElementById("pushControl");
+  const text = document.getElementById("pushStatusText");
+  const btn = document.getElementById("pushToggle");
+  if(!wrap || !text || !btn) return;
+  if(!(window.Push && Push.supported && Push.supported())){
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  if(!state.user || state.user.provider !== "supabase"){
+    text.textContent = t().pushLogin;
+    btn.textContent = t().pushEnable;
+    btn.disabled = true;
+    btn.classList.remove("is-on");
+    return;
+  }
+  btn.disabled = false;
+  const status = await Push.status();
+  btn.classList.toggle("is-on", status === "on");
+  btn.textContent = status === "on" ? t().pushDisable : t().pushEnable;
+  text.textContent = status === "on" ? t().pushOn
+    : status === "denied" ? t().pushDenied
+    : status === "unsupported" ? t().pushUnsupported
+    : t().pushReady;
+  btn.disabled = status === "denied" || status === "unsupported";
+}
+
+async function togglePushNotifications(e){
+  if(e) e.stopPropagation();
+  const btn = document.getElementById("pushToggle");
+  if(btn) btn.disabled = true;
+  if(!state.user || state.user.provider !== "supabase"){
+    showToast(t().pushLogin);
+    await refreshPushControl();
+    return;
+  }
+  const status = window.Push && Push.status ? await Push.status() : "unsupported";
+  const result = status === "on" ? await Push.disable() : await Push.enable();
+  await refreshPushControl();
+  showToast(result && result.ok
+    ? (status === "on" ? t().pushReady : t().pushOn)
+    : (state.lang === "fr" ? "Alertes non activées." : "Alerts not enabled."));
 }
 
 function pushNotification(note){
@@ -3702,6 +3772,7 @@ function toggleNotifPanel(e){
   if(panel) panel.hidden = !notifPanelOpen;
   if(btn) btn.setAttribute("aria-expanded", String(notifPanelOpen));
   if(notifPanelOpen){
+    refreshPushControl();
     renderNotifPanel();
     notifications.forEach(n=>{
       if(!n.seen && n.backendId && window.SB && SB.markNotificationRead) SB.markNotificationRead(n.backendId);
@@ -3745,7 +3816,7 @@ document.addEventListener("click", (e)=>{
 });
 document.addEventListener("keydown", (e)=>{ if(e.key === "Escape") closeNotifPanel(); });
 
-Object.assign(window, { toggleNotifPanel, clearNotifications, openNotification });
+Object.assign(window, { toggleNotifPanel, clearNotifications, openNotification, refreshPushControl, togglePushNotifications });
 
 function setUnreadMessageCount(count){
   unreadMessageCount = Math.max(0, Number(count) || 0);
@@ -4819,6 +4890,42 @@ function setSubcat(id, btn){
 function scrollCats(dir){
   document.getElementById("catrail").scrollBy({left:dir * 360, behavior:"smooth"});
 }
+
+/* ---------------- PUSH NOTIFICATIONS (profile shortcut) ---------------- */
+async function toggleProfilePushNotifications(btn){
+  if(!(window.Push && Push.supported())){
+    showToast(state.lang==="fr" ? "Notifications non disponibles sur ce navigateur." : "Notifications aren't available in this browser.");
+    return;
+  }
+  const s = await Push.status();
+  if(s === "denied"){
+    showToast(state.lang==="fr" ? "Notifications bloquées — autorisez-les dans les réglages du navigateur." : "Notifications are blocked — allow them in your browser settings.");
+    return;
+  }
+  if(s === "on"){
+    await Push.disable();
+    showToast(state.lang==="fr" ? "Notifications désactivées." : "Notifications turned off.");
+  } else {
+    const r = await Push.enable();
+    if(r.ok) showToast(state.lang==="fr" ? "Notifications activées." : "Notifications turned on.");
+    else if(r.status === "denied") showToast(state.lang==="fr" ? "Permission refusée." : "Permission denied.");
+    else showToast(state.lang==="fr" ? "Activation impossible pour le moment." : "Couldn't turn notifications on right now.");
+  }
+  refreshPushToolLabel(btn || document.getElementById("pushTool"));
+}
+function refreshPushToolLabel(btn){
+  if(!btn || !(window.Push && Push.status)) return;
+  Push.status().then(s=>{
+    const on = s === "on";
+    const b = btn.querySelector("b"), sp = btn.querySelector("span");
+    if(b) b.textContent = on
+      ? (state.lang==="fr" ? "Désactiver les notifications" : "Turn off notifications")
+      : (state.lang==="fr" ? "Activer les notifications" : "Turn on notifications");
+    if(sp) sp.textContent = on
+      ? (state.lang==="fr" ? "Vous recevez les alertes de messages." : "You get message alerts.")
+      : (state.lang==="fr" ? "Soyez prévenu des nouveaux messages, même l'app fermée." : "Get told about new messages, even when the app is closed.");
+  });
+}
 function toggleFav(id, btn){
   if(arguments[2]) arguments[2].stopPropagation();
   const key = idKey(id);
@@ -5732,6 +5839,10 @@ function renderProfile(){
           <b>${state.lang==="fr" ? "Installer l'application" : "Install the app"}</b>
           <span>${state.lang==="fr" ? "Accès depuis l'écran d'accueil, plein écran, même hors ligne." : "Home-screen access, full screen, works offline."}</span>
         </button>` : ""}
+        ${(window.PUSH_ENABLED && window.Push && Push.supported()) ? `<button type="button" class="profile-tool" id="pushTool" onclick="toggleProfilePushNotifications(this)">
+          <b>${state.lang==="fr" ? "Activer les notifications" : "Turn on notifications"}</b>
+          <span>${state.lang==="fr" ? "Soyez prévenu des nouveaux messages, même l'app fermée." : "Get told about new messages, even when the app is closed."}</span>
+        </button>` : ""}
         ${isAdminUser(user) ? `<button type="button" class="profile-tool" onclick="closeModal('profileModal');openAdmin()">
           <b>Admin</b>
           <span>${state.lang==="fr" ? "Modérer les annonces, signalements, boosts et catégories." : "Moderate listings, reports, boosts, and categories."}</span>
@@ -5749,6 +5860,7 @@ function renderProfile(){
       <button type="button" class="primary-btn" onclick="closeModal('profileModal');openPostModal()">${t().postAd}</button>
       <button type="button" class="secondary-btn" onclick="logoutUser()">${t().logoutLabel}</button>
     </div>`;
+  refreshPushToolLabel(document.getElementById("pushTool"));
   persistState();
 }
 
@@ -5853,6 +5965,9 @@ function miniListingHTML(l){
 }
 
 async function logoutUser(){
+  if(window.Push && Push.disable && state.user && state.user.provider === "supabase"){
+    try { await Push.disable(); } catch(e){}
+  }
   if(window.SB && SB.enabled() && state.user && state.user.provider === "supabase"){
     try { await SB.signOut(); } catch(e){}
   }
@@ -7438,6 +7553,8 @@ if (window.SB && SB.enabled() && !new URLSearchParams(location.search || "").has
           applyAutomaticIncludedBoosts({silent:true}).then(function(){ render(); });
           refreshMessageBadge();
           refreshBackendNotifications();
+          if(window.Push && Push.syncEndpoint) Push.syncEndpoint();
+          refreshPushControl();
           handleListingRenewalActionFromUrl();
           continuePendingProGoogle();
           continueSelectedProPlan();

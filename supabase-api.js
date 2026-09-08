@@ -561,6 +561,42 @@
       return true;
     },
 
+    // Web Push: upsert this browser's subscription for the current user.
+    // `sub` is { endpoint, p256dh, auth, user_agent }.
+    savePushSubscription: async function (sub) {
+      if (!window.db || !sub || !sub.endpoint) return false;
+      var user = await SB.currentUser();
+      if (!user) return false;
+      var res = await window.db
+        .from("push_subscriptions")
+        .upsert({
+          user_id: user.id,
+          endpoint: sub.endpoint,
+          p256dh: sub.p256dh,
+          auth: sub.auth,
+          user_agent: sub.user_agent || null,
+          last_seen: new Date().toISOString()
+        }, { onConflict: "endpoint" });
+      if (res.error) {
+        console.warn("[SB] savePushSubscription:", res.error.message);
+        return false;
+      }
+      return true;
+    },
+
+    deletePushSubscription: async function (endpoint) {
+      if (!window.db || !endpoint) return false;
+      var res = await window.db
+        .from("push_subscriptions")
+        .delete()
+        .eq("endpoint", endpoint);
+      if (res.error) {
+        console.warn("[SB] deletePushSubscription:", res.error.message);
+        return false;
+      }
+      return true;
+    },
+
     updateUserRole: async function (userId, role) {
       if (!window.db || !userId || !role) return null;
       var res = await window.db

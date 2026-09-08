@@ -12,6 +12,10 @@ const { chromium } = require("playwright");
       sessionStorage.clear();
     });
     await page.goto(`http://localhost:5173${path}?local=1`, { waitUntil: "domcontentloaded" });
+    await page.evaluate(async () => {
+      if ("serviceWorker" in navigator) await navigator.serviceWorker.ready.catch(() => {});
+    });
+    await page.waitForTimeout(800);
 
     await page.evaluate(() => {
       state.lang = "fr";

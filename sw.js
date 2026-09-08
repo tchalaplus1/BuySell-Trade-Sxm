@@ -11,7 +11,7 @@
  *
  * Bump CACHE_VERSION on any change here to force a clean cache swap.
  */
-const CACHE_VERSION = 'bst-v3';
+const CACHE_VERSION = 'bst-v4';
 const APP_SHELL = `app-shell-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 const FONTS = `fonts-${CACHE_VERSION}`;
@@ -25,6 +25,8 @@ const PRECACHE_URLS = [
   '/pwa.js',
   '/img-utils.js',
   '/draft-store.js',
+  '/push-config.js',
+  '/push-notifications.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/favicon-32.png',
@@ -126,4 +128,50 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(staleWhileRevalidate(request, RUNTIME));
+});
+
+/* ------------------------------------------------------------------ *
+ * Web Push
+ * ------------------------------------------------------------------ */
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; }
+  catch (e) { payload = { title: 'Buy Sell Trade Sxm', body: event.data && event.data.text() }; }
+
+  const title = payload.title || 'Buy Sell Trade Sxm';
+  const options = {
+    body: payload.body || '',
+    tag: payload.tag || undefined,          // collapses duplicates for the same convo
+    renotify: !!payload.tag,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/favicon-32.png',
+    data: { url: payload.url || '/marketplace.html' },
+    timestamp: Date.now(),
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/marketplace.html';
+  const targetPath = new URL(target, self.location.origin).pathname;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        // Reuse an open app tab if there is one.
+        if (new URL(client.url).pathname === targetPath && 'focus' in client) {
+          client.postMessage({ type: 'push-nav', url: target });
+          return client.focus();
+        }
+      }
+      for (const client of list) {
+        if ('focus' in client) {
+          client.postMessage({ type: 'push-nav', url: target });
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });
