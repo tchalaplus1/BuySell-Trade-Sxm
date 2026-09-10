@@ -2072,6 +2072,8 @@
     </div>
     <div class="board" id="board"></div>
 
+    <aside class="content-ad" aria-label="Publicité" data-ad-placement="content-1"></aside>
+
     <div class="results-head">
       <p class="count" id="count"></p>
       <div class="controls">
@@ -4700,7 +4702,7 @@ function cardKey(e, id){
 
 function mobileAdHTML(slot){
   return `
-    <aside class="mobile-ad-slot in-feed" aria-label="${state.lang==="fr" ? "Publicité" : "Sponsored"}" data-ad-placement="feed" data-ad-feed-slot="${slot}"></aside>`;
+    <aside class="feed-ad" aria-label="${state.lang==="fr" ? "Publicité" : "Sponsored"}" data-ad-placement="feed" data-ad-feed-slot="${slot}"></aside>`;
 }
 
 /* ---------------- RENDER: FILTER + LOGIC ---------------- */
@@ -4809,6 +4811,7 @@ function render(){
   const listingCards = list.map(l=>cardHTML(l,false));
   if(listingCards.length > 6) listingCards.splice(6, 0, mobileAdHTML("feed-after-6"));
   if(listingCards.length > 15) listingCards.splice(15, 0, mobileAdHTML("feed-after-14"));
+  if(listingCards.length > 30) listingCards.splice(30, 0, mobileAdHTML("feed-after-28"));
   grid.innerHTML = list.length
     ? listingCards.join("")
     : `<div class="no-results"><b>${t().noneT}</b>${t().noneB}</div>`;
@@ -5303,6 +5306,7 @@ function openListing(id, syncUrl = true){
               ${vehicleDetailsHTML(l)}
             </div>
           </details>` : ""}
+        <aside class="listing-detail-ad" aria-label="Publicité" data-ad-placement="listing-detail"></aside>
       </div>
     </div>`;
   openModal("detailModal");

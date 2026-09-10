@@ -287,7 +287,7 @@
     return r.top < vh + m && r.bottom > -m;
   }
 
-  function scan(root) {
+  function scan(root, eager) {
     (root || document).querySelectorAll(
       "[data-ad-placement], [data-admob-placement]"
     ).forEach(function (node) {
@@ -296,21 +296,27 @@
       node.innerHTML = "";          // drop any static placeholder markup;
                                     // an empty slot collapses to ~0px until filled,
                                     // but keeps a box so IntersectionObserver can see it
-      // Fill straight away if it's already on/near screen; otherwise lazy-load.
-      if (nearViewport(node)) { fill(node); return; }
+      // Fill straight away if requested (modal content) or already on/near
+      // screen; otherwise lazy-load when it scrolls close.
+      if (eager || nearViewport(node)) { fill(node); return; }
       observer().observe(node);
     });
   }
 
-  // Re-scan the results grid when the app re-renders it.
-  function watchGrid() {
-    var grid = document.getElementById("grid");
-    if (!grid || !("MutationObserver" in window)) return;
-    var timer = null;
-    new MutationObserver(function () {
-      clearTimeout(timer);
-      timer = setTimeout(function () { scan(grid); }, 200);
-    }).observe(grid, { childList: true });
+  // Re-scan app-managed containers when their contents re-render
+  // (the results grid on every filter change, the listing modal on open).
+  function watchContainers() {
+    if (!("MutationObserver" in window)) return;
+    ["grid", "detailBody"].forEach(function (id) {
+      var host = document.getElementById(id);
+      if (!host) return;
+      var timer = null;
+      var eager = id === "detailBody"; // modal content: fill on open, don't wait for a scroll
+      new MutationObserver(function () {
+        clearTimeout(timer);
+        timer = setTimeout(function () { scan(host, eager); }, 200);
+      }).observe(host, { childList: true, subtree: eager });
+    });
   }
 
   // Language toggle → re-render campaign/house copy (not network units).
@@ -339,7 +345,7 @@
     if (CFG.adsense && CFG.adsense.client && CFG.adsense.pageLevel) ensureAdsense();
     injectCSS();
     scan(document);
-    watchGrid();
+    watchContainers();
     watchLang();
   }
 
@@ -384,13 +390,19 @@
       ".ad-sponsor{font-size:10.5px;font-weight:700;color:var(--mute,#5b6b6e);}",
       ".ad-network{padding:8px;}",
       ".ad-network .adsbygoogle{min-height:90px;}",
-      /* desktop leaderboard: horizontal band */
+      /* in-grid card: span the full row of the results grid */
+      ".feed-ad{grid-column:1/-1;}",
+      /* mid-content band (home): constrain width, add breathing room */
+      '.content-ad[data-ad-state="filled"]{max-width:1320px;margin:18px auto;padding:0 24px;}',
+      /* listing-detail slot inside the modal */
+      '.listing-detail-ad[data-ad-state="filled"]{margin-top:16px;}',
+      /* desktop leaderboard + content band: horizontal layout */
       "@media(min-width:901px){",
-      "  .desktop-leaderboard-ad .ad-unit{flex-direction:row;align-items:center;gap:18px;min-height:120px;padding:16px 20px;}",
-      "  .desktop-leaderboard-ad .ad-media{width:220px;height:104px;max-height:none;flex:none;}",
-      "  .desktop-leaderboard-ad .ad-flag{position:absolute;right:12px;top:12px;}",
-      "  .desktop-leaderboard-ad .ad-head{font-size:20px;}",
-      "  .desktop-leaderboard-ad .ad-body{flex:1;}",
+      "  .desktop-leaderboard-ad .ad-unit,.content-ad .ad-unit{flex-direction:row;align-items:center;gap:18px;min-height:120px;padding:16px 20px;}",
+      "  .desktop-leaderboard-ad .ad-media,.content-ad .ad-media{width:220px;height:104px;max-height:none;flex:none;}",
+      "  .desktop-leaderboard-ad .ad-flag,.content-ad .ad-flag{position:absolute;right:12px;top:12px;}",
+      "  .desktop-leaderboard-ad .ad-head,.content-ad .ad-head{font-size:20px;}",
+      "  .desktop-leaderboard-ad .ad-body,.content-ad .ad-body{flex:1;}",
       "}"
     ].join("");
     document.head.appendChild(s);

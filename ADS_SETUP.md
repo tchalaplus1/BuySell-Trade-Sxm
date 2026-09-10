@@ -40,9 +40,16 @@ is safe to commit. You do not need to touch `ads.js` or the HTML.
 | Key                   | Where it shows                                   | Device  |
 |-----------------------|-------------------------------------------------|---------|
 | `desktop-leaderboard` | Full-width band near the top of the page         | Desktop |
+| `content-1`           | Band between the featured board and the results grid | Desktop + mobile |
 | `home-top`            | Banner in the mobile home flow                   | Mobile  |
-| `feed`                | Card repeated inside the listings grid           | Mobile  |
+| `feed`                | Card repeated inside the results grid (after items 6, 15, 30) | Desktop + mobile |
+| `listing-detail`      | Inside the listing detail view — highest dwell time | Desktop + mobile |
 | `sticky-bottom`       | Sticky banner above the tab bar — **disabled** in CSS today; ask to enable | Mobile |
+
+For **more inventory** beyond this: turn on AdSense **Auto ads** (set
+`adsense.pageLevel: true` in `ads-config.js` and enable Anchor / In-page
+formats in the AdSense dashboard) — Google then places extra units and a
+between-pages vignette automatically, on top of the fixed slots above.
 
 Disable all ads for a visit by adding `?noads=1` to the URL (useful for demos
 and screenshots). Re-enable with `?ads`.

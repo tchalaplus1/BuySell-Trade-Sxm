@@ -13,9 +13,11 @@
  *
  *  Slot keys used across the site:
  *    "desktop-leaderboard"  big banner, top of page, desktop only
- *    "home-top"             mobile banner under the header
- *    "sticky-bottom"        mobile sticky banner above the tab bar
- *    "feed"                 in-list card, mobile, repeats down the grid
+ *    "content-1"            band between the featured board and the grid (all sizes)
+ *    "home-top"             mobile banner in the home flow
+ *    "feed"                 in-grid card, repeats down the results grid (all sizes)
+ *    "listing-detail"       inside the listing detail view (highest dwell time)
+ *    "sticky-bottom"        mobile sticky banner above the tab bar (CSS-disabled)
  * ============================================================ */
 window.AdsConfig = {
 
@@ -38,10 +40,12 @@ window.AdsConfig = {
      * AdSense unit you create). Leave "" to fall back to a
      * house promo for that slot even when `client` is set. */
     slots: {
-      "desktop-leaderboard": "",
-      "home-top": "",
-      "sticky-bottom": "",
-      "feed": ""
+      "desktop-leaderboard": "",   // top band, desktop
+      "content-1": "",             // between featured board and the grid (desktop + mobile)
+      "home-top": "",              // mobile banner in the home flow
+      "feed": "",                  // repeats inside the results grid (desktop + mobile)
+      "listing-detail": "",        // inside the listing detail view (high dwell)
+      "sticky-bottom": ""          // mobile sticky (CSS-disabled until enabled)
     },
 
     /* Auto-ads / page-level ads. Usually leave false and use
