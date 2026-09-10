@@ -87,6 +87,9 @@
   function ensureAdsense(cb) {
     var client = CFG && CFG.adsense && CFG.adsense.client;
     if (!client) { if (cb) cb(false); return; }
+    // Always request contextual, non-personalized ads, before loading Google
+    // and before each unit request. This does not replace a consent platform.
+    (window.adsbygoogle = window.adsbygoogle || []).requestNonPersonalizedAds = 1;
     if (adsenseState === "ready") { if (cb) cb(true); return; }
     if (adsenseState === "failed") { if (cb) cb(false); return; }
     if (adsenseState === "loading") {

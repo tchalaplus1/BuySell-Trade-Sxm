@@ -26,6 +26,9 @@ window.AdsConfig = {
 
   /* ---- Google AdSense ------------------------------------- */
   adsense: {
+    /* ads.js enforces non-personalized requests for every Google unit.
+     * Before activation, configure Google's consent/privacy messaging.
+     * Non-personalized does not mean cookie-free. */
     /* Your publisher id, e.g. "ca-pub-1234567890123456".
      * Leave "" until AdSense has APPROVED the site — an empty
      * value means the loader script is never added. */

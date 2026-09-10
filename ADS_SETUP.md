@@ -1,5 +1,30 @@
 # Advertising setup — Buy Sell Trade Sxm
 
+## Non-personalized advertising
+
+Account setup (September 10, 2026):
+- Publisher: `pub-7816106453580174`.
+- Website added to AdSense: `buyselltradesxm.com`; review required.
+- AdMob iOS app: `ca-app-pub-7816106453580174~2891833705`.
+- iOS banner: `ca-app-pub-7816106453580174/9133808428`.
+- Native SDK integration and consent flow are still pending. These production
+  IDs must not be used for manual ad testing; use Google's demo units.
+
+`ads.js` sets `adsbygoogle.requestNonPersonalizedAds = 1` before loading
+Google and before requesting each unit. This applies to every AdSense
+placement, including page-level requests. There is no personalized-ad toggle.
+Direct campaigns rotate by placement, dates and weights, without using
+account information or browsing history.
+
+Google advertising is currently inactive: publisher and unit IDs are empty.
+Before adding production IDs, configure Google's privacy/consent messaging.
+Non-personalized Google ads can still use cookies for frequency capping and
+reporting; the NPA flag is not a substitute for consent handling.
+Reference: https://support.google.com/adsense/answer/9007336?hl=en
+
+The current blocks are HTML placements, not native AdMob units. Native app
+monetization needs a separate SDK integration and platform ad-unit IDs.
+
 The site now has a single ad system that fills every ad slot in this order:
 
 1. **Direct-sold campaign** — an ad you sold to a local SXM business
