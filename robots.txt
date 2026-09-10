@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Ad-network crawlers (needed for AdSense to serve relevant ads)
+User-agent: Mediapartners-Google
+Allow: /
+
+User-agent: AdsBot-Google
+Allow: /
+
+Sitemap: https://buyselltradesxm.com/sitemap.xml

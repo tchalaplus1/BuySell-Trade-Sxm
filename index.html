@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://pagead2.googlesyndication.com https://partner.googleadservices.com https://tpc.googlesyndication.com https://www.googletagservices.com https://adservice.google.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://www.google.com; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Buy Sell Trade Sxm</title>
 <meta name="description" content="Achetez et vendez d'occasion sur toute l'île : Saint-Martin et Sint Maarten, en euros ou en dollars, en français ou en anglais.">
@@ -71,19 +71,21 @@
     max-width:1320px;margin:0 auto;
     padding:12px 24px;
     display:grid;
-    grid-template-columns:auto 1fr auto;
+    grid-template-columns:auto minmax(260px,1fr) auto;
     align-items:center;
     gap:20px;
+    min-width:0;
   }
-  .logo{display:flex;align-items:center;gap:9px;line-height:1;}
+  .logo{display:flex;align-items:center;gap:9px;line-height:1;min-width:0;}
   .logo-img{width:42px;height:42px;object-fit:contain;display:block;}
-  .logo-text{display:flex;flex-direction:column;}
+  .logo-text{display:flex;flex-direction:column;min-width:0;}
   .logo .mark{
     font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:21px;
     letter-spacing:-0.03em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
   }
   .logo .mark b{color:var(--sea);}
-  .logo .sub{font-size:10.5px;color:var(--mute);font-weight:500;margin-top:3px;letter-spacing:0.01em;}
+  .logo .sub{font-size:10.5px;color:var(--mute);font-weight:500;margin-top:3px;letter-spacing:0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
   .search{
     display:flex;align-items:stretch;
@@ -121,13 +123,14 @@
   }
   .search .go:hover{background:var(--sea-deep);}
 
-  .bar-actions{display:flex;align-items:center;gap:6px;}
+  .bar-actions{display:flex;align-items:center;gap:6px;min-width:0;justify-content:flex-end;}
   .lang{display:flex;border:2px solid var(--line);border-radius:8px;overflow:hidden;margin-right:6px;}
   .lang button{padding:5px 8px;font-size:12px;font-weight:600;color:var(--mute);}
   .lang button[aria-pressed=true]{background:var(--sea);color:var(--white);}
   .icon-btn{
     display:flex;align-items:center;gap:6px;
     padding:8px 10px;border-radius:8px;font-weight:500;color:var(--ink);
+    white-space:nowrap;
   }
   .icon-btn:hover{background:var(--paper-deep);}
   .icon-btn .n{
@@ -1372,19 +1375,43 @@
     background:var(--paper);border-top:2px solid var(--line);
     padding:7px 10px calc(7px + env(safe-area-inset-bottom));
   }
-  .mobile-nav-inner{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .mobile-nav-inner{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;}
   .mobile-nav button,.mobile-nav a{
     display:flex;flex-direction:column;align-items:center;gap:2px;
     min-height:48px;
     border-radius:9px;padding:7px 4px;font-size:11px;font-weight:700;color:var(--mute);
   }
   .mobile-nav .hot{background:var(--sun);color:var(--ink);border:2px solid var(--line);}
+  .mobile-nav .nav-login{
+    background:var(--sea);color:var(--white);border:2px solid var(--line);
+    box-shadow:0 3px 0 rgba(19,42,46,.18);
+  }
+  .mobile-nav .nav-login .nav-login-ic{
+    display:flex;align-items:center;justify-content:center;
+    width:20px;height:20px;border-radius:999px;line-height:1;
+    background:rgba(255,255,255,.22);
+  }
+  .mobile-nav .nav-login.is-auth{
+    background:transparent;color:var(--sea);border-color:var(--sea);box-shadow:none;
+  }
+  .mobile-nav .nav-login.is-auth .nav-login-ic{background:rgba(19,42,46,.1);}
   .mobile-nav .n{
     min-width:16px;height:16px;border-radius:9px;padding:0 4px;
     display:inline-flex;align-items:center;justify-content:center;
     background:var(--coral);color:var(--white);font-size:10px;font-weight:800;
   }
 
+  @media (max-width:1280px){
+    .bar-inner{
+      grid-template-columns:minmax(0,1fr) auto;
+      grid-template-areas:"logo actions" "search search";
+      gap:10px 14px;
+    }
+    .logo{grid-area:logo;}
+    .bar-actions{grid-area:actions;justify-self:end;}
+    .search{grid-area:search;max-width:none;width:100%;}
+    .post{max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  }
   @media (max-width:1180px){
     .grid{grid-template-columns:repeat(3,1fr);}
   }
@@ -1404,7 +1431,7 @@
     .desktop-leaderboard-ad{margin-top:0;}
   }
   @media (max-width:1080px){
-    .bar-inner{grid-template-columns:auto 1fr;grid-template-areas:"logo actions" "search search";row-gap:12px;}
+    .bar-inner{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"logo actions" "search search";row-gap:12px;}
     .logo{grid-area:logo;}
     .bar-actions{grid-area:actions;justify-self:end;}
     .search{grid-area:search;max-width:none;}
@@ -1414,6 +1441,20 @@
     .leaderboard-copy{border-left:none;border-top:1.5px solid rgba(19,42,46,.16);}
   }
   @media (max-width:900px){
+    .bar-inner{padding:10px 14px;gap:10px;}
+    .logo-img{width:42px;height:42px;}
+    .logo .mark{font-size:18px;max-width:170px;}
+    .logo .sub{font-size:10px;max-width:170px;}
+    .bar-actions{gap:4px;}
+    .bar-actions .label{display:none;}
+    .bar-actions .icon-btn{padding:7px 8px;}
+    .bar-actions .icon-btn:not(#profileBtn){display:none;}
+    .bar-actions .post{display:inline-flex;align-items:center;justify-content:center;max-width:92px;min-height:40px;padding:9px 10px;font-size:0;}
+    .bar-actions .post::after{content:attr(data-mobile-label);font-size:13px;font-weight:800;}
+    .search{display:grid;grid-template-columns:minmax(0,1fr) auto;width:100%;}
+    .search .divide,.search select,.cur-toggle{display:none;}
+    .search .go{border-left:2px solid var(--line);padding:0;width:58px;min-height:42px;font-size:0;display:grid;place-content:center;}
+    .search .go::after{content:"Go";font-size:13px;font-weight:800;}
     .layout{grid-template-columns:minmax(0,1fr);}
     .filters{
       position:fixed;top:0;left:0;bottom:0;z-index:80;
@@ -1738,6 +1779,7 @@
       padding:8px 8px calc(8px + env(safe-area-inset-bottom));
     }
     .mobile-nav-inner{
+      grid-template-columns:repeat(6,minmax(0,1fr));
       gap:4px;
     }
     .mobile-nav button,.mobile-nav a{
@@ -1751,6 +1793,35 @@
       border-radius:16px;
       transform:translateY(-8px);
       box-shadow:0 8px 0 rgba(19,42,46,.12);
+    }
+    .mobile-nav .nav-login{
+      position:relative;
+      min-height:62px;
+      color:var(--white);
+      background:linear-gradient(180deg,var(--sea),var(--sea-deep));
+      border:2px solid var(--line);
+      border-radius:18px;
+      box-shadow:0 8px 18px rgba(19,42,46,.22),0 4px 0 rgba(19,42,46,.18);
+      transform:translateY(-4px);
+    }
+    .mobile-nav .nav-login .nav-login-ic{
+      width:24px;height:24px;
+      background:rgba(255,255,255,.2);
+      border:1px solid rgba(255,255,255,.34);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.25);
+      font-size:13px;
+    }
+    .mobile-nav .nav-login span:last-child{font-weight:900;letter-spacing:-.01em;}
+    .mobile-nav .nav-login.is-auth{
+      color:var(--sea-deep);
+      background:var(--white);
+      border-color:var(--sea);
+      box-shadow:0 4px 12px rgba(19,42,46,.12);
+      transform:none;
+    }
+    .mobile-nav .nav-login.is-auth .nav-login-ic{
+      background:rgba(0,121,133,.12);
+      border-color:rgba(0,121,133,.24);
     }
     .filters{
       width:340px;
@@ -1858,7 +1929,7 @@
         <span aria-hidden="true">$</span>
         <span class="label" data-i18n="pricingLabel">Pricing</span>
       </button>
-      <button type="button" class="post" onclick="openPostModal()" data-i18n="postAd">Déposer une annonce</button>
+      <button type="button" class="post" onclick="openPostModal()" data-i18n="postAd" data-mobile-label="Déposer">Déposer une annonce</button>
     </div>
   </div>
 </header>
@@ -2023,10 +2094,9 @@
     <a href="#browse"><span aria-hidden="true">&#8962;</span><span data-i18n="browseLabel">Parcourir</span></a>
     <button type="button" onclick="toggleFilters(true)"><span aria-hidden="true">&#9776;</span><span data-i18n="filters">Filtres</span></button>
     <button type="button" class="hot" onclick="openPostModal()"><span aria-hidden="true">+</span><span data-i18n="postShort">Déposer</span></button>
-    <button type="button" onclick="openPricingInfo()"><span aria-hidden="true">$</span><span data-i18n="pricingLabel">Pricing</span></button>
     <button type="button" onclick="openMessages()"><span aria-hidden="true">&#9993;</span><span data-i18n="messages">Messages</span></button>
     <button type="button" onclick="toggleNotifPanel(event)"><span aria-hidden="true">&#128276;</span><span data-i18n="notifLabel">Alertes</span><span class="n" id="mobileNotifCount" hidden>0</span></button>
-    <button type="button" onclick="openProfile()"><span aria-hidden="true">&#9673;</span><span id="mobileProfileLabel" data-i18n="profileLabel">Profil</span></button>
+    <button type="button" id="mobileProfileBtn" class="nav-login" onclick="openProfile()"><span class="nav-login-ic" aria-hidden="true">&#9673;</span><span id="mobileProfileLabel" data-i18n="profileLabel">Profil</span></button>
   </div>
 </nav>
 
@@ -2678,6 +2748,8 @@
 <script src="draft-store.js"></script>
 <script src="push-config.js"></script>
 <script src="push-notifications.js"></script>
+<script src="ads-config.js"></script>
+<script src="ads.js" defer></script>
 
 <script>
 /* ---------------- DATA ---------------- */
@@ -4622,12 +4694,7 @@ function cardKey(e, id){
 
 function mobileAdHTML(slot){
   return `
-    <aside class="mobile-ad-slot in-feed" aria-label="${state.lang==="fr" ? "Publicité mobile" : "Mobile ad"}" data-admob-placement="${slot}" data-admob-format="native">
-      <div class="mobile-ad-inner">
-        <span>${t().adLabel}</span>
-        <strong>${t().mobileAdFeed}</strong>
-      </div>
-    </aside>`;
+    <aside class="mobile-ad-slot in-feed" aria-label="${state.lang==="fr" ? "Publicité" : "Sponsored"}" data-ad-placement="feed" data-ad-feed-slot="${slot}"></aside>`;
 }
 
 /* ---------------- RENDER: FILTER + LOGIC ---------------- */
@@ -4758,6 +4825,11 @@ function render(){
   const mobileProfileLabel = document.getElementById("mobileProfileLabel");
   if(profileBtnLabel) profileBtnLabel.textContent = profileLabel;
   if(mobileProfileLabel) mobileProfileLabel.textContent = profileLabel;
+  const mobileProfileBtn = document.getElementById("mobileProfileBtn");
+  if(mobileProfileBtn){
+    mobileProfileBtn.classList.toggle("is-auth", !!state.user);
+    mobileProfileBtn.setAttribute("aria-label", profileLabel);
+  }
   document.getElementById("profileBtn").classList.toggle("on", !!state.user);
   document.getElementById("favBtn").classList.toggle("on", state.favs.size>0);
   const activeCount = activeFilterTotal();
@@ -5116,6 +5188,9 @@ function setLang(lang){
   document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
     const k = el.getAttribute("data-i18n-ph");
     if(t()[k]) el.setAttribute("placeholder", t()[k]);
+  });
+  document.querySelectorAll(".post[data-mobile-label]").forEach(el=>{
+    if(t().postShort) el.setAttribute("data-mobile-label", t().postShort);
   });
   const accountPlan = document.getElementById("accountPlan");
   const accountSubmit = document.querySelector("#accountModal .auth-card button[type=submit]");

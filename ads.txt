@@ -1,0 +1,9 @@
+# ads.txt — Authorized Digital Sellers
+# https://iabtechlab.com/ads-txt/
+#
+# REQUIRED for Google AdSense to pay out. After AdSense approves the
+# site, replace pub-0000000000000000 with your real publisher id
+# (from AdSense > Account > Settings, format: pub-XXXXXXXXXXXXXXXX),
+# commit, and deploy. Verify at https://buyselltradesxm.com/ads.txt
+#
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
