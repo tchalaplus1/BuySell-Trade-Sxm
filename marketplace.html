@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://pagead2.googlesyndication.com https://partner.googleadservices.com https://tpc.googlesyndication.com https://www.googletagservices.com https://adservice.google.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://www.google.com; upgrade-insecure-requests">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Buy Sell Trade Sxm</title>
 <meta name="description" content="Achetez et vendez d'occasion sur toute l'île : Saint-Martin et Sint Maarten, en euros ou en dollars, en français ou en anglais.">
 <meta property="og:title" content="Buy Sell Trade Sxm">
@@ -66,10 +66,13 @@
     position:sticky;top:0;z-index:60;
     background:var(--paper);
     border-bottom:2px solid var(--line);
+    padding-top:env(safe-area-inset-top,0px);
   }
   .bar-inner{
     max-width:1320px;margin:0 auto;
     padding:12px 24px;
+    padding-left:max(24px,env(safe-area-inset-left,0px));
+    padding-right:max(24px,env(safe-area-inset-right,0px));
     display:grid;
     grid-template-columns:auto minmax(260px,1fr) auto;
     align-items:center;
@@ -1461,6 +1464,8 @@
       width:300px;max-width:86vw;border-radius:0;border-width:0 2px 0 0;
       transform:translateX(-100%);transition:transform .25s ease;
       overflow-y:auto;
+      padding-top:calc(20px + env(safe-area-inset-top,0px));
+      padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));
     }
     .filters.open{transform:none;}
     .scrim.show{display:block;position:fixed;inset:0;background:rgba(19,42,46,.4);z-index:75;}

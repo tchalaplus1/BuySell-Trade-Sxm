@@ -7,7 +7,10 @@
 
   var SW_URL = '/sw.js';
   var DISMISS_KEY = 'bst_pwa_install_dismissed_at';
-  var DISMISS_DAYS = 14; // re-offer install two weeks after a dismissal
+  var DISMISS_DAYS = 14; // re-offer install two weeks after an explicit dismissal
+  var SEEN_KEY = 'bst_pwa_install_seen_at';
+  var SEEN_DAYS = 5;     // don't auto-pop again this soon after just showing it
+  var AUTO_HIDE_MS = 13000; // auto-dismiss the unattended banner
 
   /* ------------------------------------------------------------------ *
    * 1. Register the service worker + auto-reload once on activation
@@ -67,6 +70,17 @@
     try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch (e) {}
   }
 
+  function recentlySeen() {
+    try {
+      var ts = parseInt(localStorage.getItem(SEEN_KEY) || '0', 10);
+      return ts && (Date.now() - ts) < SEEN_DAYS * 864e5;
+    } catch (e) { return false; }
+  }
+
+  function markSeen() {
+    try { localStorage.setItem(SEEN_KEY, String(Date.now())); } catch (e) {}
+  }
+
   function lang() {
     var l = (document.documentElement.lang || navigator.language || 'fr').toLowerCase();
     if (l.indexOf('en') === 0) return 'en';
@@ -96,6 +110,7 @@
       'border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;' +
       'box-shadow:0 10px 30px rgba(19,42,46,.22);font-family:inherit;' +
       'animation:bst-pwa-in .25s ease}' +
+      '@media (max-width:900px){#bst-pwa-banner{bottom:calc(84px + env(safe-area-inset-bottom, 0px))}}' +
       '@keyframes bst-pwa-in{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}' +
       '#bst-pwa-banner img{width:40px;height:40px;border-radius:9px;flex:0 0 auto}' +
       '#bst-pwa-banner .bst-pwa-txt{flex:1;min-width:0;font-size:13px;line-height:1.35}' +
@@ -155,6 +170,14 @@
 
     xBtn.addEventListener('click', function () { markDismissed(); removeBanner(); });
 
+    if (opts.auto) {
+      markSeen();
+      setTimeout(function () {
+        var b = document.getElementById('bst-pwa-banner');
+        if (b) b.remove();
+      }, AUTO_HIDE_MS);
+    }
+
     var goBtn = wrap.querySelector('.bst-pwa-go');
     if (goBtn) goBtn.addEventListener('click', function () {
       removeBanner();
@@ -176,9 +199,9 @@
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
     deferredPrompt = e;
-    if (isStandalone() || recentlyDismissed()) return;
+    if (isStandalone() || recentlyDismissed() || recentlySeen()) return;
     // Give the app a moment to paint before covering part of the screen.
-    setTimeout(function () { showBanner({ ios: false }); }, 2500);
+    setTimeout(function () { showBanner({ ios: false, auto: true }); }, 3500);
   });
 
   window.addEventListener('appinstalled', function () {
@@ -189,8 +212,8 @@
 
   // iOS Safari never fires beforeinstallprompt — show a manual hint instead.
   document.addEventListener('DOMContentLoaded', function () {
-    if (isIos() && !isStandalone() && !recentlyDismissed()) {
-      setTimeout(function () { showBanner({ ios: true }); }, 3000);
+    if (isIos() && !isStandalone() && !recentlyDismissed() && !recentlySeen()) {
+      setTimeout(function () { showBanner({ ios: true, auto: true }); }, 4500);
     }
   });
 
