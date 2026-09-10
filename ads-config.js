@@ -31,10 +31,11 @@ window.AdsConfig = {
     /* ads.js enforces non-personalized requests for every Google unit.
      * Before activation, configure Google's consent/privacy messaging.
      * Non-personalized does not mean cookie-free. */
-    /* Your publisher id, e.g. "ca-pub-1234567890123456".
-     * Leave "" until AdSense has APPROVED the site — an empty
-     * value means the loader script is never added. */
-    client: "",
+    /* Your publisher id. Setting this loads the AdSense script
+     * site-wide. It is set now so Google's reviewer can crawl the
+     * live tag; individual slots still show a house promo until you
+     * paste their ad-unit ids below (nothing serves before approval). */
+    client: "ca-pub-7816106453580174",
 
     /* One ad-unit id per slot (the 10-digit number from the
      * AdSense unit you create). Leave "" to fall back to a
@@ -48,9 +49,12 @@ window.AdsConfig = {
       "sticky-bottom": ""          // mobile sticky (CSS-disabled until enabled)
     },
 
-    /* Auto-ads / page-level ads. Usually leave false and use
-     * the explicit slots above so layout stays controlled. */
-    pageLevel: false
+    /* Auto ads. true = also let Google auto-place extra units and a
+     * between-pages vignette, on top of the fixed slots above. The real
+     * on/off + per-format control lives in the AdSense dashboard
+     * (Ads > By site > Auto ads) — turn the vignette down there if it
+     * feels heavy once ads are serving. */
+    pageLevel: true
   },
 
   /* ---- Direct-sold local campaigns -----------------------
