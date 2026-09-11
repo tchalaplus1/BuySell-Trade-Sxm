@@ -11,7 +11,7 @@
  *
  * Bump CACHE_VERSION on any change here to force a clean cache swap.
  */
-const CACHE_VERSION = 'bst-v6';
+const CACHE_VERSION = 'bst-v7';
 const APP_SHELL = `app-shell-${CACHE_VERSION}`;
 const RUNTIME = `runtime-${CACHE_VERSION}`;
 const FONTS = `fonts-${CACHE_VERSION}`;
@@ -27,6 +27,7 @@ const PRECACHE_URLS = [
   '/draft-store.js',
   '/push-config.js',
   '/push-notifications.js',
+  '/consent.js',
   '/ads-config.js',
   '/ads.js',
   '/icons/icon-192.png',

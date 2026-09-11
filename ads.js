@@ -68,9 +68,11 @@
   }
 
   // ---- GA4 (optional, traffic measurement only) ---------------------
+  // Only loads after the visitor has granted consent (consent.js).
   function ensureGA() {
     var id = CFG && CFG.analytics && CFG.analytics.ga4;
     if (!id || window.__bstGA) return;
+    if (window.BstConsent && !window.BstConsent.granted()) return;
     window.__bstGA = true;
     var s = document.createElement("script");
     s.async = true;
@@ -232,6 +234,10 @@
   }
 
   // ---- container plumbing --------------------------------------
+  function stickyDismissed() {
+    try { return sessionStorage.getItem("bst_sticky_x") === "1"; } catch (e) { return false; }
+  }
+
   function mount(container, node, type, id) {
     container.innerHTML = "";
     container.appendChild(node);
@@ -240,6 +246,18 @@
     container.setAttribute("data-ad-kind", type);
     if (id) container.setAttribute("data-ad-fill", id);
     container.hidden = false;
+    if (normKey(container) === "sticky-bottom") {
+      var x = el("button", "ad-x");
+      x.type = "button";
+      x.setAttribute("aria-label", "Close");
+      x.textContent = "×";
+      x.addEventListener("click", function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        try { sessionStorage.setItem("bst_sticky_x", "1"); } catch (e) {}
+        collapse(container);
+      });
+      container.appendChild(x);
+    }
   }
   function collapse(container) {
     container.innerHTML = "";
@@ -251,6 +269,14 @@
     if (container.getAttribute("data-ad-state") === "filled") return;
     var key = normKey(container);
     if (!key) { collapse(container); return; }
+    if (key === "sticky-bottom") {
+      if (stickyDismissed()) { collapse(container); return; }
+      // don't stack the sticky banner under the consent notice
+      if (document.getElementById("bst-consent")) {
+        container.setAttribute("data-ad-state", "pending");
+        return;
+      }
+    }
 
     var c = pickCampaign(key);
     if (c) { renderCampaign(container, key, c); return; }
@@ -342,6 +368,16 @@
       return;
     }
     ensureGA();
+    window.addEventListener("bst:consent", function (e) {
+      // load analytics once consent is granted
+      if (e.detail && e.detail.state === "granted") ensureGA();
+      // the consent notice is gone now — let the sticky banner fill
+      var sticky = document.querySelector('[data-admob-placement="sticky-bottom"]');
+      if (sticky && sticky.getAttribute("data-ad-state") !== "filled") {
+        sticky.removeAttribute("data-ad-state");
+        scan(document);
+      }
+    });
     if (CFG.adsense && CFG.adsense.client && CFG.adsense.pageLevel) ensureAdsense();
     injectCSS();
     scan(document);
@@ -392,6 +428,14 @@
       ".ad-network .adsbygoogle{min-height:90px;}",
       /* in-grid card: span the full row of the results grid */
       ".feed-ad{grid-column:1/-1;}",
+      /* dismissible sticky bottom banner */
+      ".ad-x{position:absolute;top:-9px;right:-9px;width:22px;height:22px;border-radius:50%;",
+      "  background:#132a2e;color:#fff;border:2px solid #fff;font-size:13px;line-height:1;",
+      "  display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;padding:0;}",
+      ".mobile-sticky-ad .ad-unit{flex-direction:row;align-items:center;gap:12px;padding:10px 12px;}",
+      ".mobile-sticky-ad .ad-flag{position:absolute;left:10px;top:-8px;background:#fff;}",
+      ".mobile-sticky-ad .ad-media{width:56px;height:56px;max-height:none;flex:none;}",
+      ".mobile-sticky-ad .ad-cta{margin-top:0;}",
       /* mid-content band (home): constrain width, add breathing room */
       '.content-ad[data-ad-state="filled"]{max-width:1320px;margin:18px auto;padding:0 24px;}',
       /* listing-detail slot inside the modal */

@@ -17,7 +17,7 @@
  *    "home-top"             mobile banner in the home flow
  *    "feed"                 in-grid card, repeats down the results grid (all sizes)
  *    "listing-detail"       inside the listing detail view (highest dwell time)
- *    "sticky-bottom"        mobile sticky banner above the tab bar (CSS-disabled)
+ *    "sticky-bottom"        dismissible mobile banner above the tab bar
  * ============================================================ */
 window.AdsConfig = {
 
@@ -46,7 +46,7 @@ window.AdsConfig = {
       "home-top": "",              // mobile banner in the home flow
       "feed": "",                  // repeats inside the results grid (desktop + mobile)
       "listing-detail": "",        // inside the listing detail view (high dwell)
-      "sticky-bottom": ""          // mobile sticky (CSS-disabled until enabled)
+      "sticky-bottom": ""          // dismissible mobile banner above the tab bar
     },
 
     /* Auto ads. true = also let Google auto-place extra units and a
@@ -81,8 +81,28 @@ window.AdsConfig = {
    *           en: "Airport pickup, insurance included." },
    *   cta: { fr: "Voir les offres", en: "See deals" }
    * }
+   *
+   * The entry below is a READY TEMPLATE. It is switched OFF (weight: 0).
+   * To sell a slot to a business: copy it, set weight to 1, edit every
+   * field, drop the creative image in /ads/ (see /ads/README.md), and
+   * set start/end. Delete it when you don't need the example.
    */
-  campaigns: [],
+  campaigns: [
+    {
+      id: "example-disabled",
+      weight: 0,                                   // <-- set to 1 to go live
+      placements: ["desktop-leaderboard", "content-1", "home-top"],
+      start: "2026-01-01",
+      end: "2026-12-31",
+      sponsor: "Your advertiser name",
+      url: "https://example.com",
+      image: "/ads/example-1200x300.jpg",          // optional; remove line for text-only
+      alt: { fr: "Texte alternatif de l’image", en: "Image alt text" },
+      headline: { fr: "Titre de la publicité", en: "Ad headline" },
+      text: { fr: "Une ligne de description.", en: "One line of description." },
+      cta: { fr: "En savoir plus", en: "Learn more" }
+    }
+  ],
 
   /* ---- House promos (fallback fill) ---------------------- */
   house: {

@@ -1502,7 +1502,7 @@
     .admin-actions{justify-content:flex-start;}
     .mobile-nav{display:block;}
     .mobile-ad-slot{display:block;}
-    .mobile-sticky-ad{display:none;}
+    .mobile-sticky-ad{display:block;}
     body{padding-bottom:96px;}
   }
   @media (max-width:620px){
@@ -2742,6 +2742,7 @@
       <span data-i18n="footerLang">Français et anglais</span>
       <a href="privacy.html">Privacy Policy</a>
       <a href="terms.html">Terms of Use</a>
+      <a href="#" onclick="if(window.BstConsent){BstConsent.open();}return false;">Cookie choices</a>
     </div>
     <p class="policy-note" data-i18n="illegalPolicy">Les objets illégaux, armes, drogues, contrefaçons, produits volés et articles dangereux sont strictement interdits. Les comptes en infraction peuvent être supprimés et bannis définitivement.</p>
   </div>
@@ -2756,6 +2757,7 @@
 <script src="draft-store.js"></script>
 <script src="push-config.js"></script>
 <script src="push-notifications.js"></script>
+<script src="consent.js" defer></script>
 <script src="ads-config.js"></script>
 <script src="ads.js" defer></script>
 
