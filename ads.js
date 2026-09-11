@@ -376,6 +376,36 @@
     }, true);
   }
 
+  // Direct-sold campaigns managed from the admin panel (Supabase
+  // ad_campaigns table) — merged on top of anything in ads-config.js.
+  // Fetched async so it never delays the first paint of an ad slot;
+  // once loaded, house-filled slots are re-evaluated in case a
+  // campaign now outranks them.
+  function loadDbCampaigns() {
+    if (!(window.SB && SB.enabled() && SB.fetchAdCampaigns)) return;
+    SB.fetchAdCampaigns().then(function (rows) {
+      if (!Array.isArray(rows) || !rows.length) return;
+      var mapped = rows.filter(function (r) { return r.active !== false; }).map(function (r) {
+        return {
+          id: r.id, placements: r.placements || [], weight: r.weight == null ? 1 : r.weight,
+          start: r.start_date, end: r.end_date, sponsor: r.sponsor, url: r.url, image: r.image,
+          alt: { fr: r.alt_fr, en: r.alt_en },
+          headline: { fr: r.headline_fr, en: r.headline_en },
+          text: { fr: r.text_fr, en: r.text_en },
+          cta: { fr: r.cta_fr, en: r.cta_en }
+        };
+      });
+      if (!mapped.length) return;
+      CFG.campaigns = mapped.concat(CFG.campaigns || []);
+      document.querySelectorAll('[data-ad-kind="house"]').forEach(function (n) {
+        n.removeAttribute("data-ad-state");
+        n.removeAttribute("data-ad-kind");
+      });
+      slotOrdinal = 0;
+      scan(document);
+    }).catch(function () {});
+  }
+
   // ---- boot ---------------------------------------------------
   function boot() {
     if (OFF) {
@@ -396,6 +426,7 @@
     if (CFG.adsense && CFG.adsense.client && CFG.adsense.pageLevel) ensureAdsense();
     injectCSS();
     scan(document);
+    loadDbCampaigns();
     watchContainers();
     watchLang();
   }

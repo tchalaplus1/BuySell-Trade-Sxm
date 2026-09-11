@@ -72,8 +72,15 @@ and screenshots). Re-enable with `?ads`.
 
 ## Path A — Direct-sold local ads (earns immediately, no approval)
 
-You sell a slot to a business (car rental, restaurant, shop…) for a flat fee
-per week/month, then add one entry to `campaigns` in `ads-config.js`:
+**Easiest way (no code):** admin panel → **Publicités** tab → "+ Ajouter
+une pub". Requires the `supabase/admin-upgrade.sql` migration — see
+`ADMIN_UPGRADE_SETUP.md`. This is now the recommended way to manage
+campaigns; `ads-config.js` still works as a fallback/seed but every ad you
+add there needs a code deploy, unlike the admin tab.
+
+The manual way (editing `ads-config.js` directly) still works if you
+prefer it or haven't run the migration yet — add one entry to
+`campaigns`:
 
 ```js
 campaigns: [

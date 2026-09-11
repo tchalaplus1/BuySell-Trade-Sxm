@@ -55,6 +55,7 @@
       } : null,
       reserved: r.status === "reserved",
       sold: r.status === "sold",
+      moderationStatus: r.moderation_status || "approved",
       createdAt: r.created_at || null,
       sellerId: r.seller_id || null,
       // l'app filtre "mes annonces" sur `ownerId` : on aligne les deux noms
@@ -776,6 +777,118 @@
         )
         .subscribe();
       return function () { window.db.removeChannel(channel); };
+    },
+
+    /* ---------------- ADMIN: moderation queue ---------------- */
+
+    // annonces en attente de validation (ou toutes, pour l'onglet "À valider")
+    fetchPendingListings: async function () {
+      if (!window.db) return null;
+      var res = await window.db
+        .from("listings")
+        .select("*")
+        .eq("moderation_status", "pending")
+        .order("created_at", { ascending: false });
+      if (res.error) { console.warn("[SB] fetchPendingListings:", res.error.message); return null; }
+      return (res.data || []).map(rowToListing);
+    },
+
+    // approuve / rejette une annonce ; admin uniquement (RLS), le trigger
+    // laisse passer la valeur car appelée par un admin (is_admin() = true).
+    setListingModerationStatus: async function (listingId, status) {
+      if (!window.db) return false;
+      var res = await window.db
+        .from("listings")
+        .update({ moderation_status: status })
+        .eq("id", listingId);
+      if (res.error) { console.warn("[SB] setListingModerationStatus:", res.error.message); return false; }
+      await SB.logAdminEvent("set_moderation_status", "listing", listingId, { status: status });
+      return true;
+    },
+
+    fetchModerationRules: async function () {
+      if (!window.db) return null;
+      var res = await window.db
+        .from("moderation_rules")
+        .select("categories, keywords")
+        .eq("id", true)
+        .maybeSingle();
+      if (res.error) { console.warn("[SB] fetchModerationRules:", res.error.message); return null; }
+      return res.data || { categories: [], keywords: [] };
+    },
+
+    saveModerationRules: async function (categories, keywords) {
+      if (!window.db) return false;
+      var user = await SB.currentUser();
+      var res = await window.db
+        .from("moderation_rules")
+        .update({
+          categories: categories || [],
+          keywords: keywords || [],
+          updated_by: user ? user.id : null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", true);
+      if (res.error) { console.warn("[SB] saveModerationRules:", res.error.message); return false; }
+      return true;
+    },
+
+    /* ---------------- ADMIN: users ---------------- */
+
+    // supprime définitivement un compte (Edge Function, clé service_role).
+    adminDeleteUser: async function (userId) {
+      if (!window.db) return { error: "not connected" };
+      var res = await window.db.functions.invoke("admin-delete-user", { body: { user_id: userId } });
+      if (res.error) { console.warn("[SB] adminDeleteUser:", res.error.message); return { error: res.error.message }; }
+      return res.data || { ok: true };
+    },
+
+    // demande à l'Edge Function moderate-photo (AWS Rekognition) d'analyser une photo.
+    moderatePhoto: async function (imageUrl) {
+      if (!window.db) return { error: "not connected" };
+      var res = await window.db.functions.invoke("moderate-photo", { body: { image_url: imageUrl } });
+      if (res.error) { console.warn("[SB] moderatePhoto:", res.error.message); return { error: res.error.message }; }
+      return res.data || {};
+    },
+
+    /* ---------------- ADMIN: direct-sold ad campaigns ---------------- */
+
+    fetchAdCampaigns: async function () {
+      if (!window.db) return null;
+      var res = await window.db
+        .from("ad_campaigns")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (res.error) { console.warn("[SB] fetchAdCampaigns:", res.error.message); return null; }
+      return res.data || [];
+    },
+
+    upsertAdCampaign: async function (row) {
+      if (!window.db || !row || !row.id) return false;
+      var user = await SB.currentUser();
+      var payload = Object.assign({}, row, {
+        created_by: row.created_by || (user ? user.id : null),
+        updated_at: new Date().toISOString()
+      });
+      var res = await window.db.from("ad_campaigns").upsert(payload);
+      if (res.error) { console.warn("[SB] upsertAdCampaign:", res.error.message); return false; }
+      return true;
+    },
+
+    deleteAdCampaign: async function (id) {
+      if (!window.db || !id) return false;
+      var res = await window.db.from("ad_campaigns").delete().eq("id", id);
+      if (res.error) { console.warn("[SB] deleteAdCampaign:", res.error.message); return false; }
+      return true;
+    },
+
+    /* ---------------- ADMIN: stats ---------------- */
+
+    fetchDailyCounts: async function (days) {
+      if (!window.db) return null;
+      var res = await window.db.rpc("admin_daily_counts", { days: days || 14 });
+      if (res.error) { console.warn("[SB] fetchDailyCounts:", res.error.message); return null; }
+      return res.data || [];
     }
   };
 

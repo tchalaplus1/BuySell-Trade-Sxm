@@ -1029,7 +1029,28 @@
     padding:9px 12px;font-weight:900;white-space:nowrap;
   }
   .admin-tab[aria-pressed=true]{background:var(--sea);color:var(--white);}
-  .admin-metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .admin-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;}
+  .admin-search{
+    width:100%;border:2px solid var(--line);border-radius:9px;background:var(--white);
+    padding:9px 12px;font:inherit;margin-bottom:10px;
+  }
+  .admin-cat-checks{display:flex;flex-wrap:wrap;gap:8px 14px;margin:10px 0;}
+  .admin-cat-checks label{display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;}
+  #adminModKeywords{
+    width:100%;border:2px solid var(--line);border-radius:9px;background:var(--white);
+    padding:9px 11px;font:inherit;resize:vertical;
+  }
+  .ai-scan-result{font-size:11.5px;font-weight:700;color:var(--mute);margin-top:4px;}
+  .admin-ad-row{
+    border:1.5px solid var(--line);border-radius:10px;background:var(--paper);
+    padding:12px;margin-bottom:10px;display:grid;gap:8px;
+  }
+  .admin-ad-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;}
+  .admin-ad-grid label{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:700;color:var(--mute);}
+  .admin-ad-grid input,.admin-ad-grid select{
+    border:1.5px solid var(--line);border-radius:7px;background:var(--white);
+    padding:7px 9px;font:inherit;color:var(--ink);
+  }
   .admin-metric,.admin-panel{
     border:2px solid var(--line);border-radius:12px;background:var(--white);padding:14px;
   }
@@ -3686,6 +3707,11 @@ let adminReports = [];
 let adminBanned = [];
 let adminProfiles = [];
 let adminCategoryStatus = {};
+let adminModerationRules = { categories:[], keywords:[] };
+let adminAdCampaigns = [];
+let adminDailyCounts = [];
+let adminListingSearch = "";
+let adminUserSearch = "";
 let selectedPostPhotos = [];   // aperçus (data URL) pour l'affichage
 let selectedPostFiles = [];    // File d'origine, pour l'upload Supabase Storage
 let usersByEmail = {};
@@ -6151,7 +6177,7 @@ function profileFromRow(row){
   return normalizeUser({
     id:row.id,
     provider:"supabase",
-    email:"",
+    email:row.email || "",
     name:row.name || row.business_name || "Supabase user",
     accountType:row.account_type || "personal",
     accountPlan:row.account_plan || "personal-free",
@@ -6164,16 +6190,22 @@ function profileFromRow(row){
 
 async function loadSupabaseAdminData(){
   if(!canUseSupabaseAdmin()) return false;
-  const [reports, banned, profiles, categoryStatus] = await Promise.all([
+  const [reports, banned, profiles, categoryStatus, rules, campaigns, counts] = await Promise.all([
     SB.fetchReports ? SB.fetchReports() : null,
     SB.fetchBannedUsers ? SB.fetchBannedUsers() : null,
     SB.fetchProfiles ? SB.fetchProfiles() : null,
-    SB.fetchAdminSettings ? SB.fetchAdminSettings("category_status") : null
+    SB.fetchAdminSettings ? SB.fetchAdminSettings("category_status") : null,
+    SB.fetchModerationRules ? SB.fetchModerationRules() : null,
+    SB.fetchAdCampaigns ? SB.fetchAdCampaigns() : null,
+    SB.fetchDailyCounts ? SB.fetchDailyCounts(14) : null
   ]);
   if(Array.isArray(reports)) adminReports = reports.map(reportFromRow);
   if(Array.isArray(banned)) adminBanned = banned.map(row=>String(row.user_id));
   if(Array.isArray(profiles)) adminProfiles = profiles.map(profileFromRow);
   if(categoryStatus && typeof categoryStatus === "object") adminCategoryStatus = categoryStatus;
+  if(rules) adminModerationRules = { categories:rules.categories || [], keywords:rules.keywords || [] };
+  if(Array.isArray(campaigns)) adminAdCampaigns = campaigns;
+  if(Array.isArray(counts)) adminDailyCounts = counts;
   buildCats();
   buildFilters();
   return true;
@@ -6234,6 +6266,7 @@ function adminStats(){
   return {
     listings:L.length,
     active:L.filter(l=>!l.sold).length,
+    pending:L.filter(l=>l.moderationStatus === "pending").length,
     reports:adminReports.filter(r=>r.status !== "resolved").length,
     boosted:boosted.length,
     users:adminUsers().length,
@@ -6265,20 +6298,24 @@ function renderAdmin(tab=adminTab){
   const labels = {
     overview:state.lang==="fr" ? "Vue globale" : "Overview",
     listings:state.lang==="fr" ? "Annonces" : "Listings",
+    moderation:state.lang==="fr" ? "À valider" : "To review",
     reports:state.lang==="fr" ? "Signalements" : "Reports",
     users:state.lang==="fr" ? "Utilisateurs" : "Users",
     boosts:state.lang==="fr" ? "Boosts" : "Boosts",
-    categories:state.lang==="fr" ? "Catégories" : "Categories"
+    ads:state.lang==="fr" ? "Publicités" : "Ads",
+    categories:state.lang==="fr" ? "Catégories" : "Categories",
+    stats:state.lang==="fr" ? "Statistiques" : "Stats"
   };
   body.innerHTML = `
     <div class="admin-shell">
       <div class="admin-note">${state.lang==="fr" ? "Connecté comme admin. Les actions modifient l'app tout de suite; avec Supabase elles utilisent les règles admin ajoutées au schéma." : "Signed in as admin. Actions update the app immediately; with Supabase they use the admin rules added to the schema."}</div>
       <div class="admin-tabs">
-        ${Object.entries(labels).map(([key,label])=>`<button type="button" class="admin-tab" aria-pressed="${adminTab===key}" onclick="renderAdmin('${key}')">${label}</button>`).join("")}
+        ${Object.entries(labels).map(([key,label])=>`<button type="button" class="admin-tab" aria-pressed="${adminTab===key}" onclick="renderAdmin('${key}')">${label}${key==="moderation" && stats.pending ? ` (${stats.pending})` : ""}</button>`).join("")}
       </div>
       <div class="admin-metrics">
         <div class="admin-metric"><b>${stats.listings}</b><span>${state.lang==="fr" ? "annonces" : "listings"}</span></div>
         <div class="admin-metric"><b>${stats.active}</b><span>${state.lang==="fr" ? "actives" : "active"}</span></div>
+        <div class="admin-metric"><b>${stats.pending}</b><span>${state.lang==="fr" ? "à valider" : "to review"}</span></div>
         <div class="admin-metric"><b>${stats.reports}</b><span>${state.lang==="fr" ? "à vérifier" : "to review"}</span></div>
         <div class="admin-metric"><b>${stats.boosted}</b><span>${state.lang==="fr" ? "boostées" : "boosted"}</span></div>
         <div class="admin-metric"><b>${money(stats.revenue,"eur")}</b><span>${state.lang==="fr" ? "revenu démo" : "demo revenue"}</span></div>
@@ -6289,10 +6326,13 @@ function renderAdmin(tab=adminTab){
 
 function adminPanelHTML(tab){
   if(tab === "listings") return adminListingsHTML(L);
+  if(tab === "moderation") return adminModerationHTML();
   if(tab === "reports") return adminReportsHTML();
   if(tab === "users") return adminUsersHTML();
   if(tab === "boosts") return adminBoostsHTML();
+  if(tab === "ads") return adminAdsHTML();
   if(tab === "categories") return adminCategoriesHTML();
+  if(tab === "stats") return adminStatsHTML();
   const recent = [...L].slice(0,5);
   return `
     <div class="admin-grid">
@@ -6305,9 +6345,10 @@ function adminListingRows(items){
   return `<div class="admin-table">${items.map(l=>`
     <div class="admin-row">
       <img src="${mediaFor(l).img}" alt="">
-      <div><b>${esc(titleFor(l))}</b><br><small>${esc(l.area || "SXM")} · ${esc(adminPrice(l))} · ${esc(l.cat)}${l.boosted ? " · Boost" : ""}${l.sold ? " · Sold" : ""}</small></div>
+      <div><b>${esc(titleFor(l))}</b><br><small>${esc(l.area || "SXM")} · ${esc(adminPrice(l))} · ${esc(l.cat)}${l.boosted ? " · Boost" : ""}${l.sold ? " · Sold" : ""}${l.moderationStatus && l.moderationStatus !== "approved" ? " · " + (l.moderationStatus === "pending" ? (state.lang==="fr" ? "À valider" : "Pending") : (state.lang==="fr" ? "Rejetée" : "Rejected")) : ""}</small></div>
       <div class="admin-actions">
         <button type="button" onclick="openListingFromAdmin(${jsArg(l.id)})">${state.lang==="fr" ? "Voir" : "View"}</button>
+        <button type="button" onclick="adminEditListing(${jsArg(l.id)})">${state.lang==="fr" ? "Modifier" : "Edit"}</button>
         <button type="button" class="primary" onclick="toggleFeaturedAdmin(${jsArg(l.id)})">${l.feat ? (state.lang==="fr" ? "Retirer une" : "Unfeature") : (state.lang==="fr" ? "Mettre une" : "Feature")}</button>
         <button type="button" onclick="markListingStatusAdmin(${jsArg(l.id)}, '${l.sold ? "active" : "sold"}')">${l.sold ? "Active" : "Sold"}</button>
         <button type="button" class="danger" onclick="removeListingAdmin(${jsArg(l.id)})">${state.lang==="fr" ? "Supprimer" : "Remove"}</button>
@@ -6315,8 +6356,29 @@ function adminListingRows(items){
     </div>`).join("") || `<p>${state.lang==="fr" ? "Rien à afficher." : "Nothing to show."}</p>`}</div>`;
 }
 
+function filterListingsBySearch(items, q){
+  const needle = (q || "").trim().toLowerCase();
+  if(!needle) return items;
+  return items.filter(l=>[titleFor(l), l.cat, l.sub, l.area, l.desc].filter(Boolean).join(" ").toLowerCase().includes(needle));
+}
+
+function filterAdminListings(value){
+  adminListingSearch = value;
+  const el = document.getElementById("adminListingResults");
+  if(el) el.innerHTML = adminListingRows(filterListingsBySearch(L, adminListingSearch));
+}
+
 function adminListingsHTML(items){
-  return `<section class="admin-panel"><h3>${state.lang==="fr" ? "Gérer les annonces" : "Manage listings"}</h3>${adminListingRows(items)}</section>`;
+  return `<section class="admin-panel">
+    <h3>${state.lang==="fr" ? "Gérer les annonces" : "Manage listings"}</h3>
+    <input type="text" class="admin-search" placeholder="${state.lang==="fr" ? "Rechercher par titre, catégorie, zone..." : "Search by title, category, area..."}" value="${esc(adminListingSearch)}" oninput="filterAdminListings(this.value)">
+    <div id="adminListingResults">${adminListingRows(filterListingsBySearch(items, adminListingSearch))}</div>
+  </section>`;
+}
+
+function adminEditListing(id){
+  closeModal("adminModal");
+  openEditListing(id);
 }
 
 function adminReportRows(items){
@@ -6337,19 +6399,138 @@ function adminReportsHTML(){
   return `<section class="admin-panel"><h3>${state.lang==="fr" ? "Signalements" : "Reports"}</h3>${adminReportRows(adminReports)}</section>`;
 }
 
+function adminModerationHTML(){
+  const pending = L.filter(l=>l.moderationStatus === "pending");
+  const catOptions = CATS.filter(c=>c.id!=="all");
+  return `<section class="admin-panel">
+    <h3>${state.lang==="fr" ? "Annonces à valider" : "Listings to review"}</h3>
+    <p class="admin-note">${state.lang==="fr"
+      ? "Les comptes Pro publient toujours directement. Une annonce personnelle attend votre validation seulement si sa catégorie ou un mot-clé ci-dessous la signale."
+      : "Pro accounts always publish instantly. A personal listing waits for your approval only if its category or a keyword below flags it."}</p>
+    <div class="admin-table">
+      ${pending.map(l=>`
+        <div class="admin-row">
+          <img src="${mediaFor(l).img}" alt="">
+          <div>
+            <b>${esc(titleFor(l))}</b><br>
+            <small>${esc(l.area || "SXM")} · ${esc(adminPrice(l))} · ${esc(l.cat)} · ${esc(sellerName(l))}</small>
+            <div class="ai-scan-result" id="aiScan-${l.id}"></div>
+          </div>
+          <div class="admin-actions">
+            <button type="button" onclick="openListingFromAdmin(${jsArg(l.id)})">${state.lang==="fr" ? "Voir" : "View"}</button>
+            <button type="button" onclick="scanListingPhotosAdmin(${jsArg(l.id)}, this)">${state.lang==="fr" ? "Scanner les photos (IA)" : "Scan photos (AI)"}</button>
+            <button type="button" class="primary" onclick="setModerationStatusAdmin(${jsArg(l.id)}, 'approved')">${state.lang==="fr" ? "Approuver" : "Approve"}</button>
+            <button type="button" class="danger" onclick="setModerationStatusAdmin(${jsArg(l.id)}, 'rejected')">${state.lang==="fr" ? "Rejeter" : "Reject"}</button>
+          </div>
+        </div>`).join("") || `<p>${state.lang==="fr" ? "Rien à valider." : "Nothing to review."}</p>`}
+    </div>
+    <div class="admin-panel" style="margin-top:16px">
+      <h3>${state.lang==="fr" ? "Règles de filtrage" : "Filtering rules"}</h3>
+      <p class="admin-note">${state.lang==="fr"
+        ? "Cochez les catégories à toujours faire valider, et/ou listez des mots interdits (séparés par des virgules)."
+        : "Check categories that always need review, and/or list banned words (comma-separated)."}</p>
+      <div class="admin-cat-checks" id="adminModCats">
+        ${catOptions.map(c=>`<label><input type="checkbox" value="${c.id}" ${adminModerationRules.categories.includes(c.id) ? "checked" : ""}> ${c[state.lang]}</label>`).join("")}
+      </div>
+      <textarea id="adminModKeywords" rows="3" placeholder="${state.lang==="fr" ? "ex: arme, pistolet, drogue" : "e.g. weapon, gun, drug"}">${esc((adminModerationRules.keywords || []).join(", "))}</textarea>
+      <div class="detail-actions"><button type="button" class="primary-btn" onclick="saveModerationRulesAdmin()">${state.lang==="fr" ? "Enregistrer les règles" : "Save rules"}</button></div>
+    </div>
+  </section>`;
+}
+
+async function setModerationStatusAdmin(id, status){
+  const l = L.find(x=>String(x.id) === String(id));
+  if(!l) return;
+  const ok = canUseSupabaseAdmin() ? await SB.setListingModerationStatus(id, status) : true;
+  if(!ok){ showToast(state.lang==="fr" ? "Échec" : "Failed"); return; }
+  l.moderationStatus = status;
+  refreshAdmin();
+  showToast(status === "approved"
+    ? (state.lang==="fr" ? "Annonce approuvée" : "Listing approved")
+    : (state.lang==="fr" ? "Annonce rejetée" : "Listing rejected"));
+}
+
+async function saveModerationRulesAdmin(){
+  const boxes = [...document.querySelectorAll("#adminModCats input[type=checkbox]:checked")].map(b=>b.value);
+  const kws = (document.getElementById("adminModKeywords")?.value || "").split(/[,\n]/).map(s=>s.trim()).filter(Boolean);
+  const ok = canUseSupabaseAdmin() ? await SB.saveModerationRules(boxes, kws) : true;
+  if(ok){
+    adminModerationRules = { categories:boxes, keywords:kws };
+    showToast(state.lang==="fr" ? "Règles enregistrées" : "Rules saved");
+  } else showToast(state.lang==="fr" ? "Échec de l'enregistrement" : "Save failed");
+}
+
+async function scanListingPhotosAdmin(id, btn){
+  const l = L.find(x=>String(x.id) === String(id));
+  const box = document.getElementById("aiScan-" + id);
+  if(!l || !l.photos || !l.photos.length){ if(box) box.textContent = state.lang==="fr" ? "Aucune photo." : "No photo."; return; }
+  if(!canUseSupabaseAdmin()){ if(box) box.textContent = state.lang==="fr" ? "Nécessite Supabase." : "Requires Supabase."; return; }
+  if(btn) btn.disabled = true;
+  if(box) box.textContent = state.lang==="fr" ? "Analyse en cours..." : "Scanning...";
+  const results = [];
+  for(const url of l.photos.slice(0,8)) results.push(await SB.moderatePhoto(url));
+  if(btn) btn.disabled = false;
+  const errored = results.find(r=>r && r.error);
+  const flagged = results.some(r=>r && r.flagged);
+  const labelNames = [...new Set(results.flatMap(r=>(r && r.labels) || []).map(x=>x.name).filter(Boolean))];
+  if(box){
+    if(errored) box.textContent = (state.lang==="fr" ? "Erreur: " : "Error: ") + errored.error;
+    else box.textContent = flagged
+      ? (state.lang==="fr" ? "⚠ Signalé par l'IA : " : "⚠ Flagged by AI: ") + labelNames.join(", ")
+      : (state.lang==="fr" ? "✓ Rien de suspect détecté." : "✓ Nothing suspicious detected.");
+  }
+}
+
+function adminUserRows(list){
+  return list.map(u=>{
+    const banned = adminBanned.includes(String(u.id));
+    const canManage = !canUseSupabaseAdmin() || isUuid(u.id);
+    return `<div class="admin-row no-img">
+      <div><b>${esc(u.businessName || u.name || u.email)}</b><br><small>${esc(u.email || "")} · ${esc(u.accountType || "personal")} · ${u.listings || 0} listings · ${banned ? "Banned" : "Active"}${u.role === "admin" ? " · Admin" : ""}</small></div>
+      <div class="admin-actions">
+        <button type="button" onclick="toggleAdminRole('${esc(String(u.id))}')" ${canManage ? "" : "disabled"}>${u.role === "admin" ? "User" : "Admin"}</button>
+        <button type="button" class="danger" onclick="toggleBanUser('${esc(String(u.id))}')" ${canManage ? "" : "disabled"}>${banned ? (state.lang==="fr" ? "Débloquer" : "Unban") : (state.lang==="fr" ? "Bannir" : "Ban")}</button>
+        <button type="button" class="danger" onclick="deleteUserAdmin('${esc(String(u.id))}')" ${canUseSupabaseAdmin() && isUuid(u.id) ? "" : "disabled"}>${state.lang==="fr" ? "Supprimer le compte" : "Delete account"}</button>
+      </div>
+    </div>`;
+  }).join("") || `<p>${state.lang==="fr" ? "Aucun utilisateur." : "No users."}</p>`;
+}
+
+function filterUsersBySearch(list, q){
+  const needle = (q || "").trim().toLowerCase();
+  if(!needle) return list;
+  return list.filter(u=>[u.name, u.businessName, u.email].filter(Boolean).join(" ").toLowerCase().includes(needle));
+}
+
+function filterAdminUsers(value){
+  adminUserSearch = value;
+  const el = document.getElementById("adminUserResults");
+  if(el) el.innerHTML = adminUserRows(filterUsersBySearch(adminUsers(), adminUserSearch));
+}
+
 function adminUsersHTML(){
-  return `<section class="admin-panel"><h3>${state.lang==="fr" ? "Utilisateurs et bannissements" : "Users and bans"}</h3><div class="admin-table">
-    ${adminUsers().map(u=>{
-      const banned = adminBanned.includes(String(u.id));
-      return `<div class="admin-row no-img">
-        <div><b>${esc(u.businessName || u.name || u.email)}</b><br><small>${esc(u.email || "")} · ${esc(u.accountType || "personal")} · ${u.listings || 0} listings · ${banned ? "Banned" : "Active"}</small></div>
-        <div class="admin-actions">
-          <button type="button" onclick="toggleAdminRole('${esc(String(u.id))}')" ${canUseSupabaseAdmin() && !isUuid(u.id) ? "disabled" : ""}>${u.role === "admin" ? "User" : "Admin"}</button>
-          <button type="button" class="danger" onclick="toggleBanUser('${esc(String(u.id))}')" ${canUseSupabaseAdmin() && !isUuid(u.id) ? "disabled" : ""}>${banned ? (state.lang==="fr" ? "Débloquer" : "Unban") : (state.lang==="fr" ? "Bannir" : "Ban")}</button>
-        </div>
-      </div>`;
-    }).join("")}
-  </div></section>`;
+  return `<section class="admin-panel">
+    <h3>${state.lang==="fr" ? "Utilisateurs et bannissements" : "Users and bans"}</h3>
+    <input type="text" class="admin-search" placeholder="${state.lang==="fr" ? "Rechercher par nom ou email..." : "Search by name or email..."}" value="${esc(adminUserSearch)}" oninput="filterAdminUsers(this.value)">
+    <div id="adminUserResults" class="admin-table">${adminUserRows(filterUsersBySearch(adminUsers(), adminUserSearch))}</div>
+  </section>`;
+}
+
+async function deleteUserAdmin(id){
+  if(!canUseSupabaseAdmin() || !isUuid(id)) return;
+  if(state.user && state.user.id === id){
+    showToast(state.lang==="fr" ? "Vous ne pouvez pas supprimer votre propre compte ici." : "You can't delete your own account here.");
+    return;
+  }
+  if(!confirm(state.lang==="fr" ? "Supprimer définitivement ce compte ? Cette action est irréversible." : "Permanently delete this account? This cannot be undone.")) return;
+  const res = await SB.adminDeleteUser(id);
+  if(res && res.ok){
+    adminProfiles = adminProfiles.filter(u=>String(u.id) !== String(id));
+    showToast(state.lang==="fr" ? "Compte supprimé" : "Account deleted");
+    refreshAdmin();
+  } else {
+    showToast((state.lang==="fr" ? "Échec : " : "Failed: ") + (res && res.error ? res.error : "?"));
+  }
 }
 
 function adminBoostsHTML(){
@@ -6357,6 +6538,100 @@ function adminBoostsHTML(){
   return `<section class="admin-panel"><h3>${state.lang==="fr" ? "Boosts et visibilité payante" : "Boosts and paid visibility"}</h3>${adminListingRows(boosted)}
     <div class="detail-actions"><button type="button" class="primary-btn" onclick="renderAdmin('listings')">${state.lang==="fr" ? "Choisir une annonce à booster" : "Choose a listing to boost"}</button></div>
   </section>`;
+}
+
+const ADMIN_AD_PLACEMENTS = ["desktop-leaderboard","content-1","home-top","feed","listing-detail","sticky-bottom"];
+
+function adminAdRowHTML(c){
+  const id = c.id;
+  const isNew = !adminAdCampaigns.some(x=>x.id === id && x._saved);
+  return `<div class="admin-ad-row" id="adRow-${esc(id)}">
+    <div class="admin-ad-grid">
+      <label>ID<input type="text" class="ad-id" value="${esc(id)}" ${isNew ? "" : "readonly"}></label>
+      <label>${state.lang==="fr" ? "Actif" : "Active"}<select class="ad-active"><option value="true" ${c.active !== false ? "selected" : ""}>${state.lang==="fr" ? "Oui" : "Yes"}</option><option value="false" ${c.active === false ? "selected" : ""}>${state.lang==="fr" ? "Non" : "No"}</option></select></label>
+      <label>${state.lang==="fr" ? "Annonceur" : "Sponsor"}<input type="text" class="ad-sponsor" value="${esc(c.sponsor || "")}"></label>
+      <label>URL<input type="text" class="ad-url" value="${esc(c.url || "")}" placeholder="https://..."></label>
+      <label>${state.lang==="fr" ? "Image (optionnel)" : "Image (optional)"}<input type="text" class="ad-image" value="${esc(c.image || "")}" placeholder="https://..."></label>
+      <label>${state.lang==="fr" ? "Poids" : "Weight"}<input type="number" class="ad-weight" min="0" value="${c.weight == null ? 1 : c.weight}"></label>
+      <label>${state.lang==="fr" ? "Début" : "Start"}<input type="date" class="ad-start" value="${esc(c.start_date || "")}"></label>
+      <label>${state.lang==="fr" ? "Fin" : "End"}<input type="date" class="ad-end" value="${esc(c.end_date || "")}"></label>
+    </div>
+    <div class="admin-ad-grid">
+      <label>${state.lang==="fr" ? "Titre FR" : "Headline FR"}<input type="text" class="ad-headline-fr" value="${esc(c.headline_fr || "")}"></label>
+      <label>${state.lang==="fr" ? "Titre EN" : "Headline EN"}<input type="text" class="ad-headline-en" value="${esc(c.headline_en || "")}"></label>
+      <label>${state.lang==="fr" ? "Texte FR" : "Text FR"}<input type="text" class="ad-text-fr" value="${esc(c.text_fr || "")}"></label>
+      <label>${state.lang==="fr" ? "Texte EN" : "Text EN"}<input type="text" class="ad-text-en" value="${esc(c.text_en || "")}"></label>
+      <label>CTA FR<input type="text" class="ad-cta-fr" value="${esc(c.cta_fr || "")}"></label>
+      <label>CTA EN<input type="text" class="ad-cta-en" value="${esc(c.cta_en || "")}"></label>
+    </div>
+    <div class="admin-cat-checks">
+      ${ADMIN_AD_PLACEMENTS.map(p=>`<label><input type="checkbox" class="ad-placement" value="${p}" ${(c.placements || []).includes(p) ? "checked" : ""}> ${p}</label>`).join("")}
+    </div>
+    <div class="admin-actions">
+      <button type="button" class="primary" onclick="saveAdCampaignRow('${esc(id)}')">${state.lang==="fr" ? "Enregistrer" : "Save"}</button>
+      <button type="button" class="danger" onclick="deleteAdCampaignRow('${esc(id)}')">${state.lang==="fr" ? "Supprimer" : "Delete"}</button>
+    </div>
+  </div>`;
+}
+
+function adminAdRows(rows){
+  return rows.length ? rows.map(c=>adminAdRowHTML(c)).join("") : `<p>${state.lang==="fr" ? "Aucune pub pour l'instant." : "No ads yet."}</p>`;
+}
+
+function adminAdsHTML(){
+  return `<section class="admin-panel">
+    <h3>${state.lang==="fr" ? "Publicités vendues directement" : "Direct-sold ads"}</h3>
+    <p class="admin-note">${state.lang==="fr" ? "Une pub active pour un emplacement passe toujours avant AdSense et les messages internes." : "An active ad for a placement always beats AdSense and house promos."}</p>
+    <div id="adminAdsList">${adminAdRows(adminAdCampaigns)}</div>
+    <div class="detail-actions"><button type="button" class="primary-btn" onclick="addAdCampaignRow()">${state.lang==="fr" ? "+ Ajouter une pub" : "+ Add an ad"}</button></div>
+  </section>`;
+}
+
+function addAdCampaignRow(){
+  const id = "ad-" + Date.now().toString(36);
+  adminAdCampaigns.unshift({ id, active:true, placements:[], weight:1 });
+  const el = document.getElementById("adminAdsList");
+  if(el) el.innerHTML = adminAdRows(adminAdCampaigns);
+}
+
+async function saveAdCampaignRow(id){
+  const row = document.getElementById("adRow-" + id);
+  if(!row) return;
+  const val = sel => row.querySelector(sel)?.value || "";
+  const placements = [...row.querySelectorAll(".ad-placement:checked")].map(x=>x.value);
+  const newId = val(".ad-id").trim() || id;
+  const payload = {
+    id:newId,
+    active:val(".ad-active") === "true",
+    placements,
+    weight:Number(val(".ad-weight")) || 0,
+    start_date:val(".ad-start") || null,
+    end_date:val(".ad-end") || null,
+    sponsor:val(".ad-sponsor"),
+    url:val(".ad-url"),
+    image:val(".ad-image") || null,
+    headline_fr:val(".ad-headline-fr"), headline_en:val(".ad-headline-en"),
+    text_fr:val(".ad-text-fr"), text_en:val(".ad-text-en"),
+    cta_fr:val(".ad-cta-fr"), cta_en:val(".ad-cta-en")
+  };
+  if(!payload.url){ showToast(state.lang==="fr" ? "URL requise" : "URL required"); return; }
+  const ok = canUseSupabaseAdmin() ? await SB.upsertAdCampaign(payload) : true;
+  if(ok){
+    payload._saved = true;
+    const i = adminAdCampaigns.findIndex(x=>x.id === id);
+    if(i >= 0) adminAdCampaigns[i] = payload; else adminAdCampaigns.unshift(payload);
+    showToast(state.lang==="fr" ? "Pub enregistrée" : "Ad saved");
+    renderAdmin("ads");
+  } else showToast(state.lang==="fr" ? "Échec de l'enregistrement" : "Save failed");
+}
+
+async function deleteAdCampaignRow(id){
+  if(!confirm(state.lang==="fr" ? "Supprimer cette pub ?" : "Delete this ad?")) return;
+  const ok = canUseSupabaseAdmin() ? await SB.deleteAdCampaign(id) : true;
+  if(ok){
+    adminAdCampaigns = adminAdCampaigns.filter(x=>x.id !== id);
+    renderAdmin("ads");
+  } else showToast(state.lang==="fr" ? "Échec de la suppression" : "Delete failed");
 }
 
 function adminCategoriesHTML(){
@@ -6371,6 +6646,25 @@ function adminCategoriesHTML(){
       </div>`;
     }).join("")}
   </div></section>`;
+}
+
+function adminStatsHTML(){
+  const rows = adminDailyCounts;
+  const sum = key => rows.reduce((s,r)=>s + (Number(r[key]) || 0), 0);
+  return `<section class="admin-panel">
+    <h3>${state.lang==="fr" ? "Statistiques (14 derniers jours)" : "Stats (last 14 days)"}</h3>
+    <div class="admin-metrics">
+      <div class="admin-metric"><b>${sum("new_listings")}</b><span>${state.lang==="fr" ? "nouvelles annonces" : "new listings"}</span></div>
+      <div class="admin-metric"><b>${sum("new_users")}</b><span>${state.lang==="fr" ? "nouveaux comptes" : "new accounts"}</span></div>
+      <div class="admin-metric"><b>${sum("new_messages")}</b><span>${state.lang==="fr" ? "messages" : "messages"}</span></div>
+    </div>
+    <div class="admin-table">
+      ${rows.map(r=>`<div class="admin-row no-img">
+        <div><b>${new Date(r.day).toLocaleDateString(state.lang==="fr" ? "fr-FR" : "en-US", {weekday:"short",day:"numeric",month:"short"})}</b></div>
+        <div class="admin-actions"><span>${r.new_listings || 0} ${state.lang==="fr" ? "annonces" : "listings"}</span><span>${r.new_users || 0} ${state.lang==="fr" ? "comptes" : "users"}</span><span>${r.new_messages || 0} ${state.lang==="fr" ? "messages" : "messages"}</span></div>
+      </div>`).join("") || `<p>${state.lang==="fr" ? "Pas encore de données." : "No data yet."}</p>`}
+    </div>
+  </section>`;
 }
 
 async function syncAdminListing(l, removed=false){
@@ -6526,7 +6820,7 @@ function setPostModalMode(isEditing){
 function openEditListing(id, e){
   if(e) e.stopPropagation();
   const listing = L.find(item=>idKey(item.id)===idKey(id));
-  if(!listing || !isOwnListing(listing)){
+  if(!listing || (!isOwnListing(listing) && !isAdminUser())){
     showToast(state.lang==="fr" ? "Vous ne pouvez modifier que vos propres annonces." : "You can only edit your own listings.");
     return;
   }
@@ -7404,7 +7698,7 @@ function removePostPhoto(index){
 async function createListing(e){
   e.preventDefault();
   const editing = editingListingId ? L.find(item=>idKey(item.id)===idKey(editingListingId)) : null;
-  if(editingListingId && (!editing || !isOwnListing(editing))){
+  if(editingListingId && (!editing || (!isOwnListing(editing) && !isAdminUser()))){
     showToast(state.lang==="fr" ? "Modification impossible." : "Could not edit this listing.");
     return false;
   }
