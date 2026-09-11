@@ -11,6 +11,10 @@
 // POST { image_url: "https://.../listing-photos/....jpg" }
 // Header: Authorization: Bearer <the calling admin's Supabase access token>
 //
+// image_url MUST be this project's own public listing-photos storage URL —
+// enforced server-side (SSRF guard) so an arbitrary URL can never be
+// fetched from inside the function's network.
+//
 // Setup:
 //   1. Create an AWS account (aws.amazon.com) if you don't have one.
 //   2. IAM -> Users -> create a user with programmatic access and ONLY the
@@ -93,8 +97,18 @@ Deno.serve(async (req) => {
   const imageUrl = (body.image_url || "").trim();
   if (!imageUrl) return json({ error: "image_url required" }, 400);
 
-  const imgRes = await fetch(imageUrl);
-  if (!imgRes.ok) return json({ error: `could not fetch image: ${imgRes.status}` }, 400);
+  // SSRF guard: only ever fetch from this project's own public
+  // listing-photos bucket — never an admin-supplied arbitrary URL (which
+  // could otherwise be pointed at internal/cloud-metadata addresses).
+  const allowedPrefix = `${SUPABASE_URL}/storage/v1/object/public/listing-photos/`;
+  if (!imageUrl.startsWith(allowedPrefix)) {
+    return json({ error: "image_url must be a listing-photos storage URL from this project" }, 400);
+  }
+
+  // redirect:"error" so a redirect can't be used to steer the fetch
+  // somewhere else after the prefix check above has passed.
+  const imgRes = await fetch(imageUrl, { redirect: "error" }).catch(() => null);
+  if (!imgRes || !imgRes.ok) return json({ error: `could not fetch image: ${imgRes ? imgRes.status : "network error"}` }, 400);
   const bytes = new Uint8Array(await imgRes.arrayBuffer());
   if (bytes.byteLength > 5 * 1024 * 1024) return json({ error: "image too large (max 5MB for this check)" }, 400);
 

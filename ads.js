@@ -123,10 +123,25 @@
     document.head.appendChild(s);
   }
 
+  // Only http(s) links/images are ever rendered — blocks javascript:/data:
+  // and similar schemes from a campaign row (admin-authored, but a
+  // compromised admin session should still not be able to run script in a
+  // visitor's browser via an ad link).
+  function safeHttpUrl(u) {
+    return typeof u === "string" && /^https?:\/\//i.test(u) ? u : "";
+  }
+  // Images may also be a same-origin repo path (e.g. "/ads/foo.jpg", per
+  // ADS_SETUP.md) — allow a single leading slash, but not "//host/..."
+  // (protocol-relative, i.e. an off-site URL in disguise).
+  function safeImageSrc(u) {
+    if (safeHttpUrl(u)) return u;
+    return typeof u === "string" && /^\/(?!\/)/.test(u) ? u : "";
+  }
+
   // ---- pickers -----------------------------------------------------
   function pickCampaign(key) {
     var list = (CFG.campaigns || []).filter(function (c) {
-      if (!c || !c.url) return false;
+      if (!c || !safeHttpUrl(c.url)) return false;
       if (!(c.placements || []).some(function (p) { return p === key; })) return false;
       var t = todayStr();
       if (c.start && c.start > t) return false;
@@ -158,15 +173,18 @@
   }
 
   function renderCampaign(container, key, c) {
+    var href = safeHttpUrl(c.url);
+    if (!href) { collapse(container); return; }   // pickCampaign already filters this, belt-and-suspenders
     var a = el("a", "ad-unit ad-campaign");
-    a.href = c.url;
+    a.href = href;
     a.target = "_blank";
     a.rel = "sponsored noopener nofollow";
     a.setAttribute("data-ad-id", c.id || "");
     a.appendChild(flag(L(CFG.label) || "Sponsored"));
-    if (c.image) {
+    var imgSrc = safeImageSrc(c.image);
+    if (imgSrc) {
       var img = el("img", "ad-media");
-      img.src = c.image;
+      img.src = imgSrc;
       img.alt = L(c.alt) || c.sponsor || "";
       img.loading = "lazy";
       a.appendChild(img);

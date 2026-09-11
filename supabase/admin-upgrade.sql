@@ -111,13 +111,20 @@ returns trigger language plpgsql security definer set search_path = public as $$
 begin
   if tg_op = 'INSERT' then
     new.moderation_status := compute_listing_moderation_status(new.category, new.title, new.description, new.seller_id);
-  elsif tg_op = 'UPDATE' and not is_admin()
-        and (new.title is distinct from old.title
-             or new.description is distinct from old.description
-             or new.category is distinct from old.category) then
-    -- Re-check on meaningful edits by the seller. Admin edits (incl.
-    -- approve/reject from the moderation queue) are never overridden here.
-    new.moderation_status := compute_listing_moderation_status(new.category, new.title, new.description, new.seller_id);
+  elsif tg_op = 'UPDATE' and not is_admin() then
+    -- A non-admin can NEVER write moderation_status directly — whether or
+    -- not they also touch title/description/category in the same
+    -- statement. Recompute on a watched-field edit; otherwise pin it back
+    -- to the existing value, discarding whatever the client sent. Admin
+    -- edits (incl. approve/reject from the moderation queue) are never
+    -- overridden here, since this whole branch is skipped for is_admin().
+    if new.title is distinct from old.title
+       or new.description is distinct from old.description
+       or new.category is distinct from old.category then
+      new.moderation_status := compute_listing_moderation_status(new.category, new.title, new.description, new.seller_id);
+    else
+      new.moderation_status := old.moderation_status;
+    end if;
   end if;
   return new;
 end;
