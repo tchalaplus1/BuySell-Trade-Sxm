@@ -7477,10 +7477,13 @@ async function createListing(e){
     if(uIndex >= 0) userListings[uIndex] = finalListing;
     else if(!published) userListings.unshift(finalListing);
     persistState();
-  } else if(!published){
+  } else {
+    // Add to local state regardless of local-fallback vs. real Supabase
+    // publish — otherwise the profile's own-listings count and "My
+    // listings" stay stale until the next full hydrate (e.g. re-login).
     userListings.unshift(finalListing);
-    persistState();
     L.unshift(finalListing);
+    persistState();
   }
   e.target.reset();
   selectedPostPhotos = [];
