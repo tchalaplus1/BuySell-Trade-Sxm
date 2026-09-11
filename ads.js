@@ -253,10 +253,18 @@
       x.textContent = "×";
       x.addEventListener("click", function (ev) {
         ev.preventDefault(); ev.stopPropagation();
+        if (container.__stickyTimer) clearTimeout(container.__stickyTimer);
         try { sessionStorage.setItem("bst_sticky_x", "1"); } catch (e) {}
         collapse(container);
       });
       container.appendChild(x);
+      // never leave the sticky banner up forever: auto-hide it after 15s.
+      // this does not mark it dismissed for the session, so it may reappear
+      // on a later view scan — but each appearance is capped at 15s.
+      if (container.__stickyTimer) clearTimeout(container.__stickyTimer);
+      container.__stickyTimer = setTimeout(function () {
+        collapse(container);
+      }, 15000);
     }
   }
   function collapse(container) {
