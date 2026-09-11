@@ -16,14 +16,28 @@ placement, including page-level requests. There is no personalized-ad toggle.
 Direct campaigns rotate by placement, dates and weights, without using
 account information or browsing history.
 
-Google advertising is currently inactive: publisher and unit IDs are empty.
-Before adding production IDs, configure Google's privacy/consent messaging.
-Non-personalized Google ads can still use cookies for frequency capping and
-reporting; the NPA flag is not a substitute for consent handling.
-Reference: https://support.google.com/adsense/answer/9007336?hl=en
+Status (September 11, 2026): `ads-config.js` has `adsense.client =
+"ca-pub-7816106453580174"` and `pageLevel: true`, so the AdSense loader script
+runs site-wide (helps Google's review crawl). Per-slot `adsense.slots` ids are
+still empty, so every slot shows a house promo — nothing serves until the site
+is approved AND unit ids are added. NPA (`requestNonPersonalizedAds = 1`) is
+always on. Reference: https://support.google.com/adsense/answer/9007336?hl=en
 
-The current blocks are HTML placements, not native AdMob units. Native app
-monetization needs a separate SDK integration and platform ad-unit IDs.
+## Consent
+
+- `consent.js` shows a lightweight cookie/ads notice (Accept / Decline), stores
+  the choice in `localStorage` (`bst_consent`), and exposes `window.BstConsent`.
+  A "Cookie choices" link in the footer reopens it.
+- Google Analytics (`ads-config.js` → `analytics.ga4`) only loads after Accept.
+- The notice defers to a certified TCF CMP if one is present (`window.__tcfapi`).
+- **For full EEA/UK compliance you must also publish Google's GDPR message:**
+  AdSense → Privacy & messaging → GDPR → create for `buyselltradesxm.com`,
+  privacy URL `https://buyselltradesxm.com/privacy.html`, add FR + EN → Publish.
+  It then shows to EEA/UK visitors only; `consent.js` steps aside for them.
+
+The HTML blocks below are AdSense placements. Native AdMob (app) IDs
+(`ca-app-pub-7816106453580174~2891833705`, banner `.../9133808428`) need a
+separate SDK integration and are not used by this web setup.
 
 The site now has a single ad system that fills every ad slot in this order:
 

@@ -107,9 +107,20 @@
     (document.body || document.documentElement).appendChild(box);
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { show(false); });
-  } else {
+  // Give a real TCF CMP (Google's certified GDPR message, etc.) up to ~2.8s
+  // to load and register __tcfapi before falling back to this simple notice —
+  // otherwise EEA visitors briefly see two banners.
+  function maybeShow(attempt) {
+    if (document.getElementById("bst-consent")) return;
+    if (read()) return;                 // visitor already chose
+    if (window.__tcfapi) return;        // a certified CMP is present — defer to it
+    if (attempt < 4) { setTimeout(function () { maybeShow(attempt + 1); }, 700); return; }
     show(false);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () { maybeShow(0); });
+  } else {
+    maybeShow(0);
   }
 })();

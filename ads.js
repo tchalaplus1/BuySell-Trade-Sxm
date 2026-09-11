@@ -271,9 +271,16 @@
     if (!key) { collapse(container); return; }
     if (key === "sticky-bottom") {
       if (stickyDismissed()) { collapse(container); return; }
-      // don't stack the sticky banner under the consent notice
+      // don't stack the sticky banner under the consent notice; give the
+      // consent script a moment to put its banner up on first pass
       if (document.getElementById("bst-consent")) {
         container.setAttribute("data-ad-state", "pending");
+        return;
+      }
+      if (!container.__stickyWaited) {
+        container.__stickyWaited = true;
+        container.setAttribute("data-ad-state", "pending");
+        setTimeout(function () { container.removeAttribute("data-ad-state"); fill(container); }, 3000);
         return;
       }
     }
