@@ -188,19 +188,38 @@ create policy "ad_campaigns: admin gere tout"
 -- ------------------------------------------------------------
 create or replace function admin_daily_counts(days integer default 14)
 returns table (day date, new_listings bigint, new_users bigint, new_messages bigint)
-language sql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not is_admin() then
+    raise exception 'admin only';
+  end if;
+  return query
   select d::date as day,
     (select count(*) from public.listings   l where l.created_at::date = d::date) as new_listings,
     (select count(*) from public.profiles   p where p.created_at::date = d::date) as new_users,
     (select count(*) from public.messages   m where m.created_at::date = d::date) as new_messages
   from generate_series(current_date - (greatest(days,1) - 1), current_date, interval '1 day') as d
   order by d desc;
+end;
 $$;
-
-grant execute on function admin_daily_counts(integer) to authenticated;
--- The function itself does not check is_admin() (stats have no personal
--- content), but only signed-in users can call it, and the app only
--- exposes this in the admin panel.
 
 grant select, insert, update, delete on public.ad_campaigns to authenticated;
 grant select, insert, update, delete on public.moderation_rules to authenticated;
+
+-- ------------------------------------------------------------
+--  5) Close the EXECUTE-to-PUBLIC gap Postgres applies to every new
+--     function by default (unlike tables, which grant nothing to PUBLIC
+--     automatically). Without this, anyone — no login required — can
+--     call these as RPCs directly:
+--       - compute_listing_moderation_status: turns your keyword/category
+--         rules into an oracle (probe title/category combos, read back
+--         'approved' vs 'pending', and word real listings around them —
+--         exactly what the admin-only moderation_rules RLS was meant to
+--         prevent).
+--       - admin_daily_counts: now also re-checks is_admin() itself above,
+--         but revoking PUBLIC here too is defense in depth.
+-- ------------------------------------------------------------
+revoke all on function compute_listing_moderation_status(text, text, text, uuid) from public;
+revoke all on function set_listing_moderation_status() from public;
+revoke all on function admin_daily_counts(integer) from public;
+grant execute on function admin_daily_counts(integer) to authenticated;
