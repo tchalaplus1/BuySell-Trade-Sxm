@@ -155,11 +155,32 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
+// Plain `===` on secrets leaks a timing side-channel (comparison exits at
+// the first mismatched byte). Hash both sides to a fixed-length digest
+// first — that removes any length signal too — then compare with a
+// constant-time XOR accumulator instead of short-circuiting `!==`.
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [da, db] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const ua = new Uint8Array(da), ub = new Uint8Array(db);
+  let diff = 0;
+  for (let i = 0; i < ua.length; i++) diff |= ua[i] ^ ub[i];
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
   const auth = req.headers.get("x-push-secret") || (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  if (!PUSH_SECRET || (auth !== PUSH_SECRET && auth !== SERVICE_KEY)) {
+  if (!PUSH_SECRET) return json({ error: "unauthorized" }, 401);
+  const [matchesPush, matchesService] = await Promise.all([
+    timingSafeEqual(auth, PUSH_SECRET),
+    timingSafeEqual(auth, SERVICE_KEY),
+  ]);
+  if (!matchesPush && !matchesService) {
     return json({ error: "unauthorized" }, 401);
   }
   if (!VAPID_PUBLIC || !VAPID_PRIVATE || !SUPABASE_URL || !SERVICE_KEY) {

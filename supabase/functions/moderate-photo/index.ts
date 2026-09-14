@@ -51,16 +51,30 @@ function serviceKey(): string {
 }
 const SERVICE_KEY = serviceKey();
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// Admin-only + service-role-backed, so a wildcard origin was never a way in
+// on its own — but there's no reason to let every website on the internet
+// read this response either. Only the real app origins (and local dev) get
+// the header back; everything else gets no Access-Control-Allow-Origin at
+// all, which the browser treats as "cross-origin read denied".
+function isAllowedOrigin(origin: string): boolean {
+  if (origin === "https://buyselltradesxm.com" || origin === "https://www.buyselltradesxm.com") return true;
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+}
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+  if (isAllowedOrigin(origin)) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
+}
 
-function json(body: unknown, status = 200) {
+function json(body: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, "Content-Type": "application/json" },
+    headers: { ...cors, "Content-Type": "application/json" },
   });
 }
 
@@ -82,35 +96,36 @@ async function callerIsAdmin(bearer: string): Promise<boolean> {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
-  if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
-  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: "function not configured" }, 500);
+  const cors = corsHeaders(req);
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  if (req.method !== "POST") return json({ error: "method not allowed" }, 405, cors);
+  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: "function not configured" }, 500, cors);
   if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
-    return json({ error: "AWS not configured — set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION secrets" }, 500);
+    return json({ error: "AWS not configured — set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION secrets" }, 500, cors);
   }
 
   const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-  if (!(await callerIsAdmin(bearer))) return json({ error: "admin only" }, 403);
+  if (!(await callerIsAdmin(bearer))) return json({ error: "admin only" }, 403, cors);
 
   let body: { image_url?: string };
-  try { body = await req.json(); } catch { return json({ error: "invalid body" }, 400); }
+  try { body = await req.json(); } catch { return json({ error: "invalid body" }, 400, cors); }
   const imageUrl = (body.image_url || "").trim();
-  if (!imageUrl) return json({ error: "image_url required" }, 400);
+  if (!imageUrl) return json({ error: "image_url required" }, 400, cors);
 
   // SSRF guard: only ever fetch from this project's own public
   // listing-photos bucket — never an admin-supplied arbitrary URL (which
   // could otherwise be pointed at internal/cloud-metadata addresses).
   const allowedPrefix = `${SUPABASE_URL}/storage/v1/object/public/listing-photos/`;
   if (!imageUrl.startsWith(allowedPrefix)) {
-    return json({ error: "image_url must be a listing-photos storage URL from this project" }, 400);
+    return json({ error: "image_url must be a listing-photos storage URL from this project" }, 400, cors);
   }
 
   // redirect:"error" so a redirect can't be used to steer the fetch
   // somewhere else after the prefix check above has passed.
   const imgRes = await fetch(imageUrl, { redirect: "error" }).catch(() => null);
-  if (!imgRes || !imgRes.ok) return json({ error: `could not fetch image: ${imgRes ? imgRes.status : "network error"}` }, 400);
+  if (!imgRes || !imgRes.ok) return json({ error: `could not fetch image: ${imgRes ? imgRes.status : "network error"}` }, 400, cors);
   const bytes = new Uint8Array(await imgRes.arrayBuffer());
-  if (bytes.byteLength > 5 * 1024 * 1024) return json({ error: "image too large (max 5MB for this check)" }, 400);
+  if (bytes.byteLength > 5 * 1024 * 1024) return json({ error: "image too large (max 5MB for this check)" }, 400, cors);
 
   try {
     const client = new RekognitionClient({
@@ -127,8 +142,8 @@ Deno.serve(async (req) => {
     const flagged = labels.some((l) =>
       /weapon|drug|gun|firearm|knife|explicit|violence/i.test(String(l.name) + " " + String(l.parentName))
     );
-    return json({ flagged, labels });
+    return json({ flagged, labels }, 200, cors);
   } catch (err) {
-    return json({ error: `rekognition error: ${(err as Error).message}` }, 502);
+    return json({ error: `rekognition error: ${(err as Error).message}` }, 502, cors);
   }
 });

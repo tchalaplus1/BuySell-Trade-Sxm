@@ -34,16 +34,30 @@ function serviceKey(): string {
 }
 const SERVICE_KEY = serviceKey();
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// Admin-only + service-role-backed, so a wildcard origin was never a way in
+// on its own — but there's no reason to let every website on the internet
+// read this response either. Only the real app origins (and local dev) get
+// the header back; everything else gets no Access-Control-Allow-Origin at
+// all, which the browser treats as "cross-origin read denied".
+function isAllowedOrigin(origin: string): boolean {
+  if (origin === "https://buyselltradesxm.com" || origin === "https://www.buyselltradesxm.com") return true;
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+}
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+  if (isAllowedOrigin(origin)) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
+}
 
-function json(body: unknown, status = 200) {
+function json(body: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, "Content-Type": "application/json" },
+    headers: { ...cors, "Content-Type": "application/json" },
   });
 }
 
@@ -66,19 +80,20 @@ async function callerIsAdmin(bearer: string): Promise<{ ok: boolean; id?: string
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
-  if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
-  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: "function not configured" }, 500);
+  const cors = corsHeaders(req);
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  if (req.method !== "POST") return json({ error: "method not allowed" }, 405, cors);
+  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: "function not configured" }, 500, cors);
 
   const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const { ok: isAdmin, id: adminId } = await callerIsAdmin(bearer);
-  if (!isAdmin) return json({ error: "admin only" }, 403);
+  if (!isAdmin) return json({ error: "admin only" }, 403, cors);
 
   let body: { user_id?: string };
-  try { body = await req.json(); } catch { return json({ error: "invalid body" }, 400); }
+  try { body = await req.json(); } catch { return json({ error: "invalid body" }, 400, cors); }
   const targetId = (body.user_id || "").trim();
-  if (!targetId) return json({ error: "user_id required" }, 400);
-  if (targetId === adminId) return json({ error: "cannot delete your own account this way" }, 400);
+  if (!targetId) return json({ error: "user_id required" }, 400, cors);
+  if (targetId === adminId) return json({ error: "cannot delete your own account this way" }, 400, cors);
 
   const delRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${targetId}`, {
     method: "DELETE",
@@ -86,7 +101,7 @@ Deno.serve(async (req) => {
   });
   if (!delRes.ok) {
     const errText = await delRes.text().catch(() => "");
-    return json({ error: `delete failed: ${delRes.status} ${errText}` }, 502);
+    return json({ error: `delete failed: ${delRes.status} ${errText}` }, 502, cors);
   }
 
   await fetch(`${SUPABASE_URL}/rest/v1/admin_events`, {
@@ -106,5 +121,5 @@ Deno.serve(async (req) => {
     }]),
   }).catch(() => {});
 
-  return json({ ok: true });
+  return json({ ok: true }, 200, cors);
 });
