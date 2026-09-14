@@ -3727,7 +3727,7 @@ const chatThreads = {};
 let unreadMessageCount = 0;
 
 /* ================= NOTIFICATIONS (cloche + panneau) ================= */
-const LISTING_ACTIVE_DAYS = 30;
+const LISTING_ACTIVE_DAYS = 14;
 const LISTING_EXPIRY_WARNING_DAYS = 3;
 let notifications = [];          // { id, kind, title, text, at, seen, listingId, convKey }
 let dismissedNotificationIds = new Set();
@@ -3858,7 +3858,7 @@ function notificationActionsHTML(n){
   const p = jsArg(n.listingId);
   return `<div class="notif-actions">
     <button type="button" class="notif-action keep" onclick="confirmListingAvailable(${p}, event)">${state.lang==="fr" ? "Oui, garder" : "Keep listing"}</button>
-    <button type="button" class="notif-action sold" onclick="setOwnListingSold(${p}, true, event)">${state.lang==="fr" ? "Vendu" : "Sold"}</button>
+    <button type="button" class="notif-action sold" onclick="markSoldAndRemove(${p}, event)">${state.lang==="fr" ? "Vendu" : "Sold"}</button>
     <button type="button" class="notif-action delete" onclick="deleteOwnListing(${p}, event)">${state.lang==="fr" ? "Supprimer" : "Delete"}</button>
   </div>`;
 }
@@ -4124,6 +4124,16 @@ function esc(s){
   return String(s ?? "").replace(/[&<>"']/g, ch => ({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
   }[ch]));
+}
+/* HTML-escaping an href/src is not enough — a "javascript:" (or "data:")
+ * URL contains none of the characters esc() touches, so it survives
+ * escaping intact and runs in the visitor's session when clicked.
+ * Only allow http(s) links (and same-origin absolute paths) through. */
+function safeUrl(u){
+  if(typeof u !== "string") return "";
+  if(/^https?:\/\//i.test(u)) return u;
+  if(/^\/(?!\/)/.test(u)) return u;
+  return "";
 }
 function idKey(id){
   return String(id ?? "");
@@ -4492,7 +4502,8 @@ function businessContactHTML(user){
   const logo = user.businessLogo ? `<span>${state.lang==="fr" ? "Logo ajouté" : "Logo added"}</span>` : "";
   const phone = user.businessPhone ? `<span>${esc(user.businessPhone)}</span>` : "";
   const whatsapp = user.businessWhatsapp ? `<span>WhatsApp ${esc(user.businessWhatsapp)}</span>` : "";
-  const website = user.businessWebsite ? `<a href="${esc(user.businessWebsite)}" target="_blank" rel="noopener">${state.lang==="fr" ? "Site Internet" : "Website"}</a>` : "";
+  const safeWebsite = safeUrl(user.businessWebsite);
+  const website = safeWebsite ? `<a href="${esc(safeWebsite)}" target="_blank" rel="noopener">${state.lang==="fr" ? "Site Internet" : "Website"}</a>` : "";
   const items = [logo, phone, whatsapp, website].filter(Boolean).join("");
   return items ? `<div class="business-contact">${items}</div>` : "";
 }
@@ -4716,7 +4727,7 @@ function cardHTML(l, pinned, idx){
         onclick="shareListing(${idParam}, event)"><span aria-hidden="true">&#8599;</span>${t().shareLabel}</button>
       ${isOwnListing(l) && !l.sold && !hasActiveProSubscription(state.user) ? `<button type="button" class="boost-card-action" onclick="openBoostCheckout(${idParam}, event)" aria-label="${t().boostCta}">${t().boostCardCta}</button>` : ""}
       ${profile.photos ? `<div class="photo">
-        <img src="${media.img}" alt="${media.alt}" loading="lazy">
+        <img src="${esc(media.img)}" alt="${esc(media.alt)}" loading="lazy">
         <span class="gallery"><span aria-hidden="true">&#9634;</span> ${photoCount}</span>
       </div>` : ""}
       ${status?`<div class="status-tag"><span>${status}</span></div>`:""}
@@ -5117,7 +5128,7 @@ async function handleListingRenewalActionFromUrl(){
     return;
   }
   if(pending.action === "keep") await confirmListingAvailable(l.id);
-  if(pending.action === "sold") await setOwnListingSold(l.id, true);
+  if(pending.action === "sold") await markSoldAndRemove(l.id);
   if(pending.action === "delete") await deleteOwnListing(l.id);
   clearRenewalActionFromUrl();
 }
@@ -5300,13 +5311,13 @@ function openListing(id, syncUrl = true){
   const detail = document.getElementById("detailBody");
   const thumbs = gallery.length > 1 ? `
     <div class="photo-preview" style="margin-top:10px">
-        ${gallery.map((item,i)=>`<button type="button" class="gallery-thumb ${i===0 ? "active" : ""}" data-full="${esc(item.img)}" data-alt="${esc(item.alt)}" onclick="setMainListingPhoto(${jsArg(l.id)}, this.dataset.full, this.dataset.alt, this)" aria-label="${esc(listingTitle)} photo ${i+1}"><img src="${item.img}" alt="${esc(item.alt)}" loading="eager"></button>`).join("")}
+        ${gallery.map((item,i)=>`<button type="button" class="gallery-thumb ${i===0 ? "active" : ""}" data-full="${esc(item.img)}" data-alt="${esc(item.alt)}" onclick="setMainListingPhoto(${jsArg(l.id)}, this.dataset.full, this.dataset.alt, this)" aria-label="${esc(listingTitle)} photo ${i+1}"><img src="${esc(item.img)}" alt="${esc(item.alt)}" loading="eager"></button>`).join("")}
     </div>` : "";
   document.getElementById("detailTitle").textContent = listingTitle;
   detail.innerHTML = `
     <div class="detail-grid ${profile.photos ? "" : "no-media"}">
       ${profile.photos ? `<div class="detail-media">
-        <div class="detail-photo"><img id="mainPhoto-${l.id}" src="${media.img}" alt="${media.alt}"></div>
+        <div class="detail-photo"><img id="mainPhoto-${l.id}" src="${esc(media.img)}" alt="${esc(media.alt)}"></div>
         ${thumbs}
       </div>` : ""}
       <div class="detail-meta">
@@ -6080,7 +6091,7 @@ function miniListingHTML(l){
   const status = l.sold ? t().sold : l.reserved ? t().reserved : state.lang==="fr" ? "Active" : "Active";
   return `
     <div class="mini-row ${profile.photos ? "" : "no-media"}">
-      ${profile.photos ? `<img src="${media.img}" alt="">` : ""}
+      ${profile.photos ? `<img src="${esc(media.img)}" alt="">` : ""}
       <button type="button" class="mini-main" onclick="closeModal('profileModal');openListing(${idParam})">
         <b>${esc(titleFor(l))}</b><br><small>${esc(l.area)}${profile.price ? " · " + priceHTML(l).replace(/<[^>]*>/g," ") : ""}</small>
       </button>
@@ -6341,7 +6352,7 @@ function adminPanelHTML(tab){
 function adminListingRows(items){
   return `<div class="admin-table">${items.map(l=>`
     <div class="admin-row">
-      <img src="${mediaFor(l).img}" alt="">
+      <img src="${esc(mediaFor(l).img)}" alt="">
       <div><b>${esc(titleFor(l))}</b><br><small>${esc(l.area || "SXM")} · ${esc(adminPrice(l))} · ${esc(l.cat)}${l.boosted ? " · Boost" : ""}${l.sold ? " · Sold" : ""}${l.moderationStatus && l.moderationStatus !== "approved" ? " · " + (l.moderationStatus === "pending" ? (state.lang==="fr" ? "À valider" : "Pending") : (state.lang==="fr" ? "Rejetée" : "Rejected")) : ""}</small></div>
       <div class="admin-actions">
         <button type="button" onclick="openListingFromAdmin(${jsArg(l.id)})">${state.lang==="fr" ? "Voir" : "View"}</button>
@@ -6382,7 +6393,7 @@ function adminReportRows(items){
   return `<div class="admin-table">${items.map(r=>{
     const l = L.find(x=>String(x.id) === String(r.listingId));
     return `<div class="admin-row ${l ? "" : "no-img"}">
-      ${l ? `<img src="${mediaFor(l).img}" alt="">` : ""}
+      ${l ? `<img src="${esc(mediaFor(l).img)}" alt="">` : ""}
       <div><b>${esc(l ? titleFor(l) : "Listing removed")}</b><br><small>${esc(r.reason)} · ${r.createdAt ? new Date(r.createdAt).toLocaleDateString(state.lang==="fr"?"fr-FR":"en-US") : ""} · ${esc(r.status)}</small>${r.notes ? `<br><small>${esc(r.notes)}</small>` : ""}</div>
       <div class="admin-actions">
         ${l ? `<button type="button" onclick="openListingFromAdmin(${jsArg(l.id)})">${state.lang==="fr" ? "Voir" : "View"}</button><button type="button" class="danger" onclick="removeListingAdmin(${jsArg(l.id)})">${state.lang==="fr" ? "Supprimer" : "Remove"}</button>` : ""}
@@ -6407,7 +6418,7 @@ function adminModerationHTML(){
     <div class="admin-table">
       ${pending.map(l=>`
         <div class="admin-row">
-          <img src="${mediaFor(l).img}" alt="">
+          <img src="${esc(mediaFor(l).img)}" alt="">
           <div>
             <b>${esc(titleFor(l))}</b><br>
             <small>${esc(l.area || "SXM")} · ${esc(adminPrice(l))} · ${esc(l.cat)} · ${esc(sellerName(l))}</small>
@@ -6872,7 +6883,7 @@ async function confirmListingAvailable(id, e){
   persistState();
   render();
   closeNotifPanel();
-  showToast(state.lang==="fr" ? "Annonce gardée en ligne pour 30 jours." : "Listing kept online for 30 days.");
+  showToast(state.lang==="fr" ? "Annonce gardée en ligne pour 14 jours." : "Listing kept online for 14 days.");
 }
 
 async function setOwnListingSold(id, sold, e){
@@ -6922,6 +6933,30 @@ async function deleteOwnListing(id, e){
   closeModal("detailModal");
   render();
   showToast(state.lang==="fr" ? "Annonce supprimée." : "Listing deleted.");
+}
+
+// "Sold" from the 2-week renewal reminder: unlike the general "mark as
+// sold" toggle elsewhere (which just tags status=sold and keeps it
+// visible), confirming a sale from the reminder removes the listing
+// outright — the whole point of the reminder is to keep sold items off
+// the site instead of accumulating.
+async function markSoldAndRemove(id, e){
+  if(e) e.stopPropagation();
+  const l = L.find(x=>idKey(x.id)===idKey(id));
+  if(!l || !isOwnListing(l)) return;
+  const idx = L.findIndex(x=>idKey(x.id)===idKey(id));
+  if(idx >= 0) L.splice(idx, 1);
+  userListings = userListings.filter(x=>idKey(x.id)!==idKey(id));
+  state.favs.delete(idKey(id));
+  removeListingExpiryNotifications(id);
+  try{
+    if(window.SB && SB.enabled() && state.user?.provider === "supabase" && SB.deleteListing) await SB.deleteListing(id);
+  }catch(err){ console.warn("[sold+remove]", err); }
+  persistState();
+  closeModal("detailModal");
+  closeNotifPanel();
+  render();
+  showToast(state.lang==="fr" ? "Vendu — annonce retirée du site." : "Sold — listing removed from the site.");
 }
 
 function ownerActionBarHTML(l){

@@ -148,7 +148,11 @@ self.addEventListener('push', (event) => {
     renotify: !!payload.tag,
     icon: '/icons/icon-192.png',
     badge: '/icons/favicon-32.png',
-    data: { url: payload.url || '/marketplace.html' },
+    // actionUrls maps a button's `action` id (e.g. "keep") to the URL it
+    // should open — the OS notification itself only understands
+    // {action, title}, so the destination travels separately in `data`.
+    data: { url: payload.url || '/marketplace.html', actionUrls: payload.actionUrls || {} },
+    actions: Array.isArray(payload.actions) ? payload.actions.slice(0, 2) : undefined,
     timestamp: Date.now(),
   };
   event.waitUntil(self.registration.showNotification(title, options));
@@ -156,7 +160,11 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || '/marketplace.html';
+  const data = event.notification.data || {};
+  const actionUrls = data.actionUrls || {};
+  // A tap on one of the notification's own buttons carries event.action;
+  // a plain tap on the notification body has action === "".
+  const target = (event.action && actionUrls[event.action]) || data.url || '/marketplace.html';
   const targetPath = new URL(target, self.location.origin).pathname;
 
   event.waitUntil(
