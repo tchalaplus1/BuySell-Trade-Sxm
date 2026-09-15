@@ -16,6 +16,13 @@
 
   var CFG = window.AdsConfig || null;
 
+  // Set by native-admob.js (loaded first, synchronously) when this page is
+  // running inside the packaged Android/iOS app. Google's AdSense terms
+  // don't allow serving AdSense inside a wrapped native app — that shell
+  // shows a real AdMob banner instead — so every AdSense path is skipped
+  // here and house promos / direct-sold campaigns keep filling the rest.
+  var NATIVE_ADS = !!window.__BST_NATIVE_ADS__;
+
   // ---- kill switches -----------------------------------------------------
   var OFF = false;
   try {
@@ -314,7 +321,7 @@
     var c = pickCampaign(key);
     if (c) { renderCampaign(container, key, c); return; }
 
-    var unit = CFG.adsense && CFG.adsense.client &&
+    var unit = !NATIVE_ADS && CFG.adsense && CFG.adsense.client &&
                CFG.adsense.slots && CFG.adsense.slots[key];
     if (unit) { renderAdsense(container, key, unit); return; }
 
@@ -441,12 +448,30 @@
         scan(document);
       }
     });
-    if (CFG.adsense && CFG.adsense.client && CFG.adsense.pageLevel) ensureAdsense();
+    if (!NATIVE_ADS && CFG.adsense && CFG.adsense.client && CFG.adsense.pageLevel) ensureAdsense();
     injectCSS();
     scan(document);
     loadDbCampaigns();
     watchContainers();
     watchLang();
+    watchStickyOverlap();
+  }
+
+  // The fixed sticky-bottom banner and the in-flow content-1 band are both
+  // ~412px wide at the same left offset on mobile, so whenever content-1's
+  // natural scroll position happens to land in the bottom safe zone the
+  // sticky banner is anchored to, the two visually stack on top of each
+  // other. Rather than guess a fixed height/scroll offset that would only
+  // hold for today's content, yield the fixed banner out of the way for as
+  // long as content-1 is actually on screen.
+  function watchStickyOverlap() {
+    if (!("IntersectionObserver" in window)) return;
+    var sticky = document.querySelector('[data-admob-placement="sticky-bottom"]');
+    var content1 = document.querySelector('[data-ad-placement="content-1"]');
+    if (!sticky || !content1) return;
+    new IntersectionObserver(function (entries) {
+      sticky.classList.toggle("ad-yield", !!(entries[0] && entries[0].isIntersecting));
+    }, { threshold: 0.01 }).observe(content1);
   }
 
   window.Ads = {
@@ -496,6 +521,8 @@
       ".ad-x{position:absolute;top:-9px;right:-9px;width:22px;height:22px;border-radius:50%;",
       "  background:#132a2e;color:#fff;border:2px solid #fff;font-size:13px;line-height:1;",
       "  display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;padding:0;}",
+      ".mobile-sticky-ad{transition:transform .2s ease,opacity .2s ease;}",
+      ".mobile-sticky-ad.ad-yield{transform:translateY(160%);opacity:0;pointer-events:none;}",
       ".mobile-sticky-ad .ad-unit{flex-direction:row;align-items:center;gap:12px;padding:10px 12px;}",
       ".mobile-sticky-ad .ad-flag{position:absolute;left:10px;top:-8px;background:#fff;}",
       ".mobile-sticky-ad .ad-media{width:56px;height:56px;max-height:none;flex:none;}",

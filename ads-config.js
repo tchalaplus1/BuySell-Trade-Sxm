@@ -57,6 +57,33 @@ window.AdsConfig = {
     pageLevel: true
   },
 
+  /* ---- AdMob (native app only) -----------------------------
+   * Only used inside the packaged Android/iOS app (native-admob.js).
+   * The web/PWA never reads this — it keeps using `adsense` above.
+   * AdMob requires one ad unit per platform, and the App ID also has
+   * to be pasted into the native project (a JS value here can't
+   * change it — it's read before the page loads):
+   *   Android → android/app/src/main/res/values/strings.xml  (admob_app_id)
+   *   iOS     → ios/App/App/Info.plist  (GADApplicationIdentifier)
+   *
+   * Steps once you have a live AdMob account:
+   *   1. admob.google.com → Apps → add this app (Android, then iOS).
+   *   2. Ads > Ad units → create one Banner per platform.
+   *   3. Paste both App IDs into the native files above, and both
+   *      Banner unit ids into `banner` below.
+   *   4. Set `testing: false`.
+   *   5. `npx cap sync` and rebuild.
+   * Until then, Google's public TEST ids below are safe to ship —
+   * they show fake ads and can never get the account flagged. */
+  admob: {
+    testing: true,
+    banner: {
+      android: "ca-app-pub-3940256099942544/6300978111", // Google TEST banner unit
+      ios: "ca-app-pub-3940256099942544/2934735716"       // Google TEST banner unit
+    }
+    // testingDevices: ["YOUR_DEVICE_ID"], // needed to see real-looking test ads on a physical device
+  },
+
   /* ---- Direct-sold local campaigns -----------------------
    * You sell these yourself to SXM businesses. Add an object
    * per campaign. Dates are inclusive, ISO "YYYY-MM-DD", in
