@@ -1059,7 +1059,7 @@ function renderNotifPanel(){
   }
   list.innerHTML = notifications.map(n=>`
     <div class="notif-item ${n.seen ? "" : "unseen"}">
-    <button type="button" class="notif-open" data-notif-id="${esc(n.id)}" onclick="openNotification(this.dataset.notifId)">
+    <button type="button" class="notif-open" data-notif-id="${esc(n.id)}" data-click="openNotification" data-click-args='${dataArgs(["__DATA__:notifId"])}'>
       <span class="notif-ico">${notifIcon(n.kind)}</span>
       <span class="notif-item-main">
         <b>${esc(n.title)}</b>
@@ -1072,11 +1072,11 @@ function renderNotifPanel(){
 
 function notificationActionsHTML(n){
   if(n.kind !== "listing_expiring" || !n.listingId) return "";
-  const p = jsArg(n.listingId);
+  const p = idKey(n.listingId);
   return `<div class="notif-actions">
-    <button type="button" class="notif-action keep" onclick="confirmListingAvailable(${p}, event)">${state.lang==="fr" ? "Oui, garder" : "Keep listing"}</button>
-    <button type="button" class="notif-action sold" onclick="markSoldAndRemove(${p}, event)">${state.lang==="fr" ? "Vendu" : "Sold"}</button>
-    <button type="button" class="notif-action delete" onclick="deleteOwnListing(${p}, event)">${state.lang==="fr" ? "Supprimer" : "Delete"}</button>
+    <button type="button" class="notif-action keep" data-click="confirmListingAvailable" data-click-args='${dataArgs([p, "__EVENT__"])}'>${state.lang==="fr" ? "Oui, garder" : "Keep listing"}</button>
+    <button type="button" class="notif-action sold" data-click="markSoldAndRemove" data-click-args='${dataArgs([p, "__EVENT__"])}'>${state.lang==="fr" ? "Vendu" : "Sold"}</button>
+    <button type="button" class="notif-action delete" data-click="deleteOwnListing" data-click-args='${dataArgs([p, "__EVENT__"])}'>${state.lang==="fr" ? "Supprimer" : "Delete"}</button>
   </div>`;
 }
 
@@ -1358,6 +1358,102 @@ function idKey(id){
 function jsArg(value){
   return esc(JSON.stringify(idKey(value)));
 }
+
+/* ------------------------------------------------------------------
+ * CSP event delegation -- replaces inline on*= attributes so script-src
+ * can drop 'unsafe-inline'. Most of the UI is rendered via innerHTML
+ * (listing cards, admin rows, modals) and re-rendered constantly, so a
+ * single delegated listener per event type -- bound once here, never
+ * re-bound -- is what has to survive every future re-render, instead of
+ * attaching/detaching individual listeners on elements that get thrown
+ * away and recreated on every render() call.
+ *
+ * Markup: data-click="fnName" data-click-args='["a", "__EVENT__"]'
+ * (same pattern for data-change/data-input/data-keydown/data-submit).
+ * Args are JSON; three sentinel strings resolve to live values at
+ * dispatch time instead of being frozen at render time: "__EVENT__" the
+ * DOM event, "__THIS__" the element, "__VALUE__" el.value. "__DATA__:x"
+ * resolves to el.dataset.x.
+ *
+ * Dispatch walks UP from event.target through every ancestor carrying a
+ * data-<event> attribute (innermost first) -- not just the nearest one
+ * -- so it matches real bubbling: an inner handler calling
+ * event.stopPropagation() still stops an outer one from also firing,
+ * exactly like the inline data-click="stopEventPropagation" data-click-args='${dataArgs(["__EVENT__"])}' pattern it
+ * replaces relied on. ------------------------------------------------ */
+function dataArgs(arr){
+  return JSON.stringify(arr).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/'/g,"&#39;");
+}
+function _resolveDispatchArg(raw, el, event){
+  if(raw === "__EVENT__") return event;
+  if(raw === "__THIS__") return el;
+  if(raw === "__VALUE__") return el.value;
+  if(typeof raw === "string" && raw.indexOf("__DATA__:") === 0) return el.dataset[raw.slice(9)];
+  return raw;
+}
+function _dispatchDelegated(evtName, event){
+  const attr = "data-" + evtName;
+  let el = event.target.closest("[" + attr + "]");
+  while(el){
+    const fnName = el.getAttribute(attr);
+    const fn = window[fnName];
+    if(typeof fn === "function"){
+      let args = [];
+      const rawArgs = el.getAttribute(attr + "-args");
+      if(rawArgs){
+        try { args = JSON.parse(rawArgs).map(a => _resolveDispatchArg(a, el, event)); }
+        catch(e){ console.warn("[dispatch] bad args for", fnName, e); }
+      }
+      fn.apply(el, args);
+    } else {
+      console.warn("[dispatch] missing handler:", fnName);
+    }
+    if(event.cancelBubble) break;
+    el = el.parentElement ? el.parentElement.closest("[" + attr + "]") : null;
+  }
+}
+["click","change","input","keydown"].forEach(function(evtName){
+  document.addEventListener(evtName, function(event){ _dispatchDelegated(evtName, event); });
+});
+document.addEventListener("submit", function(event){ _dispatchDelegated("submit", event); });
+
+/* Small named wrappers for the onclick= patterns that chained multiple
+ * calls or held real logic, instead of a single function call -- kept
+ * as tiny, readable, individually-named functions rather than teaching
+ * the generic dispatcher above a multi-call or expression syntax. */
+function closeAccountModalThenPricing(){ closeModal("accountModal"); openPricingInfo(); }
+function closeBoostModalThenPostModal(){ closeModal("boostModal"); openPostModal(); }
+function closeProfileModalThenAdmin(){ closeModal("profileModal"); openAdmin(); }
+function closeProfileModalThenBoostInfo(){ closeModal("profileModal"); openBoostInfo(); }
+function closeProfileModalThenOpenListing(id){ closeModal("profileModal"); openListing(id); }
+function closeProfileModalThenMessages(){ closeModal("profileModal"); openMessages(); }
+function closeProfileModalThenPostModal(){ closeModal("profileModal"); openPostModal(); }
+function closeProfileModalThenPricing(){ closeModal("profileModal"); openPricingInfo(); }
+function scrollFavsThenCloseProfileModal(){ scrollFavs(); closeModal("profileModal"); }
+function openMessagesPreventDefault(event){ if(event) event.preventDefault(); openMessages(); }
+function openPostModalPreventDefault(event){ if(event) event.preventDefault(); openPostModal(); }
+function openPricingInfoPreventDefault(event){ if(event) event.preventDefault(); openPricingInfo(); }
+function openCookieConsentPreventDefault(event){
+  if(event) event.preventDefault();
+  if(window.BstConsent) BstConsent.open();
+}
+function stopEventPropagation(event){ event.stopPropagation(); }
+function selectInputText(event){ event.target.select(); }
+function triggerAvatarFileInput(){
+  const el = document.getElementById("avatarFileInput");
+  if(el) el.click();
+}
+function handleInstallAppClick(){
+  if(!(window.bstPromptInstall && bstPromptInstall())){
+    showToast(state.lang==="fr"
+      ? "Ouvrez le menu de votre navigateur puis « Ajouter à l'écran d'accueil »."
+      : "Open your browser menu, then 'Add to Home Screen'.");
+  }
+}
+function onSearchKeydown(event){
+  if(event.key === "Enter") applySearch(event);
+}
+
 function initials(name, email){
   const base = (name || email || "?").trim();
   const parts = base.split(/\s+/).filter(Boolean);
@@ -1883,7 +1979,7 @@ async function hydrateRealThread(id){
 }
 
 function chatHTML(id){
-  const idParam = jsArg(id);
+  const idParam = idKey(id);
   const l = L.find(x=>idKey(x.id)===idKey(id));
   if(l && !l.sellerId){
     return `
@@ -1905,23 +2001,23 @@ function chatHTML(id){
         <small>${t().chatOnline}</small>
       </div>
       <div class="chat-log" id="chatLog-${id}">${rows}</div>
-      <form class="chat-compose" onsubmit="return sendListingMessage(${idParam}, event)">
+      <form class="chat-compose" data-submit="sendListingMessage" data-submit-args='${dataArgs([idParam, "__EVENT__"])}'>
         <input id="chatInput-${id}" ${state.user ? "" : "disabled"} placeholder="${state.user ? t().chatPlaceholder : t().loginToChat}" value="${state.user ? esc(t().defaultMessage) : ""}">
         <button type="submit" ${state.user ? "" : "disabled"}>${t().chatSend}</button>
       </form>
       <div class="chat-actions">
-        <button type="button" class="chat-action" onclick="quickChatAction(${idParam}, 'location')">${t().chatLocation}</button>
-        <button type="button" class="chat-action" onclick="quickChatAction(${idParam}, 'photo')">${t().chatPhoto}</button>
-        <button type="button" class="chat-action" onclick="quickChatAction(${idParam}, 'offer')">${t().chatOffer}</button>
-        <button type="button" class="chat-action" onclick="quickChatAction(${idParam}, 'report')">${t().chatReport}</button>
-        <button type="button" class="chat-action" onclick="quickChatAction(${idParam}, 'block')">${t().chatBlock}</button>
+        <button type="button" class="chat-action" data-click="quickChatAction" data-click-args='${dataArgs([idParam, 'location'])}'>${t().chatLocation}</button>
+        <button type="button" class="chat-action" data-click="quickChatAction" data-click-args='${dataArgs([idParam, 'photo'])}'>${t().chatPhoto}</button>
+        <button type="button" class="chat-action" data-click="quickChatAction" data-click-args='${dataArgs([idParam, 'offer'])}'>${t().chatOffer}</button>
+        <button type="button" class="chat-action" data-click="quickChatAction" data-click-args='${dataArgs([idParam, 'report'])}'>${t().chatReport}</button>
+        <button type="button" class="chat-action" data-click="quickChatAction" data-click-args='${dataArgs([idParam, 'block'])}'>${t().chatBlock}</button>
       </div>
     </div>`;
 }
 
 /* ---------------- RENDER: CARD ---------------- */
 function cardHTML(l, pinned, idx){
-  const idParam = jsArg(l.id);
+  const idParam = idKey(l.id);
   const profile = postFieldProfile(l.cat, l.sub || "");
   const gallery = listingGallery(l);
   const media = gallery[0] || mediaFor(l);
@@ -1934,15 +2030,15 @@ function cardHTML(l, pinned, idx){
   if(!l.sellerId) badges.push(`<span class="badge demo">${state.lang==="fr" ? "Exemple" : "Example"}</span>`);
   const isFav = state.favs.has(idKey(l.id));
   return `
-    <article class="card ${profile.photos ? "" : "no-media"} ${listingIsSold(l) ? "is-sold" : ""}" ${pinned?`style="--i:${idx}"`:""} onclick="openListing(${idParam})" tabindex="0" onkeydown="cardKey(event, ${idParam})">
+    <article class="card ${profile.photos ? "" : "no-media"} ${listingIsSold(l) ? "is-sold" : ""}" ${pinned?`style="--i:${idx}"`:""} data-click="openListing" data-click-args='${dataArgs([idParam])}' tabindex="0" data-keydown="cardKey" data-keydown-args='${dataArgs(["__EVENT__", idParam])}'>
       ${pinned?`<span class="pin" aria-hidden="true"></span>`:""}
       <span class="stripe ${l.side}" aria-hidden="true"></span>
       <button type="button" class="fav" aria-pressed="${isFav}"
         aria-label="${state.lang==="fr"?"Ajouter aux favoris":"Add to favourites"}"
-        onclick="toggleFav(${idParam}, this, event)">${isFav?"&#9829;":"&#9825;"}</button>
+        data-click="toggleFav" data-click-args='${dataArgs([idParam, "__THIS__", "__EVENT__"])}'>${isFav?"&#9829;":"&#9825;"}</button>
       <button type="button" class="share-card" aria-label="${t().shareLabel}" title="${t().shareLabel}"
-        onclick="shareListing(${idParam}, event)"><span aria-hidden="true">&#8599;</span>${t().shareLabel}</button>
-      ${isOwnListing(l) && !l.sold && !hasActiveProSubscription(state.user) ? `<button type="button" class="boost-card-action" onclick="openBoostCheckout(${idParam}, event)" aria-label="${t().boostCta}">${t().boostCardCta}</button>` : ""}
+        data-click="shareListing" data-click-args='${dataArgs([idParam, "__EVENT__"])}'><span aria-hidden="true">&#8599;</span>${t().shareLabel}</button>
+      ${isOwnListing(l) && !l.sold && !hasActiveProSubscription(state.user) ? `<button type="button" class="boost-card-action" data-click="openBoostCheckout" data-click-args='${dataArgs([idParam, "__EVENT__"])}' aria-label="${t().boostCta}">${t().boostCardCta}</button>` : ""}
       ${profile.photos ? `<div class="photo">
         <img src="${esc(media.img)}" alt="${esc(media.alt)}" loading="lazy">
         <span class="gallery"><span aria-hidden="true">&#9634;</span> ${photoCount}</span>
@@ -2419,8 +2515,8 @@ function renderSavedSearches(){
   if(!list) return;
   list.innerHTML = state.saved.map(item=>`
     <span class="s">
-      <button type="button" onclick="applySavedSearch('${item.id}')">${esc(item.label)}</button>
-      <button type="button" class="remove-search" onclick="removeSavedSearch('${item.id}')" aria-label="${state.lang==="fr"?"Supprimer la recherche":"Remove search"}">x</button>
+      <button type="button" data-click="applySavedSearch" data-click-args='${dataArgs([item.id])}'>${esc(item.label)}</button>
+      <button type="button" class="remove-search" data-click="removeSavedSearch" data-click-args='${dataArgs([item.id])}' aria-label="${state.lang==="fr"?"Supprimer la recherche":"Remove search"}">x</button>
     </span>`).join("");
 }
 function applySavedSearch(id){
@@ -2528,7 +2624,7 @@ function openListing(id, syncUrl = true){
   const detail = document.getElementById("detailBody");
   const thumbs = gallery.length > 1 ? `
     <div class="photo-preview" style="margin-top:10px">
-        ${gallery.map((item,i)=>`<button type="button" class="gallery-thumb ${i===0 ? "active" : ""}" data-full="${esc(item.img)}" data-alt="${esc(item.alt)}" onclick="setMainListingPhoto(${jsArg(l.id)}, this.dataset.full, this.dataset.alt, this)" aria-label="${esc(listingTitle)} photo ${i+1}"><img src="${esc(item.img)}" alt="${esc(item.alt)}" loading="eager"></button>`).join("")}
+        ${gallery.map((item,i)=>`<button type="button" class="gallery-thumb ${i===0 ? "active" : ""}" data-full="${esc(item.img)}" data-alt="${esc(item.alt)}" data-click="setMainListingPhoto" data-click-args='${dataArgs([l.id, "__DATA__:full", "__DATA__:alt", "__THIS__"])}' aria-label="${esc(listingTitle)} photo ${i+1}"><img src="${esc(item.img)}" alt="${esc(item.alt)}" loading="eager"></button>`).join("")}
     </div>` : "";
   document.getElementById("detailTitle").textContent = listingTitle;
   detail.innerHTML = `
@@ -2553,10 +2649,10 @@ function openListing(id, syncUrl = true){
           ? `<div class="sold-notice">${state.lang==="fr" ? "Cette annonce est vendue. La messagerie est fermée." : "This listing is sold. Messaging is closed."}</div>`
           : chatHTML(l.id)}
         <div class="detail-actions">
-          ${state.user || listingIsSold(l) ? "" : `<button type="button" class="primary-btn" onclick="requestListingLogin(${jsArg(l.id)})">${state.lang==="fr"?"Se connecter pour discuter":"Log in to chat"}</button>`}
-          ${isOwnListing(l) && !listingIsSold(l) && !hasActiveProSubscription(state.user) ? `<button type="button" class="primary-btn" onclick="openBoostCheckout(${jsArg(l.id)}, event)">${t().boostCta}</button>` : ""}
-          <button type="button" class="primary-btn" onclick="shareListing(${jsArg(l.id)}, event)">${t().shareLabel}</button>
-          <button type="button" class="secondary-btn" onclick="toggleFavFromDetail(${jsArg(l.id)})">${state.favs.has(idKey(id))?t().savedLabel:t().saveLabel}</button>
+          ${state.user || listingIsSold(l) ? "" : `<button type="button" class="primary-btn" data-click="requestListingLogin" data-click-args='${dataArgs([l.id])}'>${state.lang==="fr"?"Se connecter pour discuter":"Log in to chat"}</button>`}
+          ${isOwnListing(l) && !listingIsSold(l) && !hasActiveProSubscription(state.user) ? `<button type="button" class="primary-btn" data-click="openBoostCheckout" data-click-args='${dataArgs([l.id, "__EVENT__"])}'>${t().boostCta}</button>` : ""}
+          <button type="button" class="primary-btn" data-click="shareListing" data-click-args='${dataArgs([l.id, "__EVENT__"])}'>${t().shareLabel}</button>
+          <button type="button" class="secondary-btn" data-click="toggleFavFromDetail" data-click-args='${dataArgs([l.id])}'>${state.favs.has(idKey(id))?t().savedLabel:t().saveLabel}</button>
         </div>
         <div class="share-box">
           <div>
@@ -2564,8 +2660,8 @@ function openListing(id, syncUrl = true){
             <p>${t().shareHelp}</p>
           </div>
           <div class="share-row">
-            <input id="shareUrl-${l.id}" value="${esc(shareUrl)}" readonly onclick="this.select()" aria-label="${t().shareTitle}">
-            <button type="button" class="secondary-btn" onclick="copyListingLink(${jsArg(l.id)}, event)">${t().copyLink}</button>
+            <input id="shareUrl-${l.id}" value="${esc(shareUrl)}" readonly data-click="selectInputText" data-click-args='${dataArgs(["__EVENT__"])}' aria-label="${t().shareTitle}">
+            <button type="button" class="secondary-btn" data-click="copyListingLink" data-click-args='${dataArgs([l.id, "__EVENT__"])}'>${t().copyLink}</button>
           </div>
         </div>
         ${(descriptionFor(l) || vehicleDetailsHTML(l)) ? `
@@ -2883,7 +2979,7 @@ function renderInboxRail(){
     return;
   }
   rail.innerHTML = visible.map(c=>`
-    <button type="button" class="msgr-item ${c.key === activeConvKey ? "active" : ""}" data-key="${esc(c.key)}" onclick="openInboxThread(this.dataset.key)">
+    <button type="button" class="msgr-item ${c.key === activeConvKey ? "active" : ""}" data-key="${esc(c.key)}" data-click="openInboxThread" data-click-args='${dataArgs(["__DATA__:key"])}'>
       <span class="msgr-ava">${esc(inboxAvatar(c.who))}</span>
       <span class="msgr-item-main">
         <b>${esc(c.who)}${c.unread ? `<span class="msgr-dot" aria-label="${c.unread} ${state.lang==="fr" ? "non lus" : "unread"}"></span>` : ""}</b>
@@ -3142,8 +3238,8 @@ function renderProfile(){
     <section class="profile-hero">
       <div class="profile-avatar-wrap">
         <div class="profile-avatar">${avatarHTML(user)}</div>
-        <button type="button" class="avatar-edit-btn" onclick="document.getElementById('avatarFileInput').click()" aria-label="${t().changePhoto}" title="${t().changePhoto}">📷</button>
-        <input type="file" id="avatarFileInput" accept="image/*" hidden onchange="handleAvatarChange(this)">
+        <button type="button" class="avatar-edit-btn" data-click="triggerAvatarFileInput" aria-label="${t().changePhoto}" title="${t().changePhoto}">📷</button>
+        <input type="file" id="avatarFileInput" accept="image/*" hidden data-change="handleAvatarChange" data-change-args='${dataArgs(["__THIS__"])}'>
       </div>
       <div>
         <span class="profile-kicker">${profileType}</span>
@@ -3156,49 +3252,49 @@ function renderProfile(){
       </div>
     </section>
     <div class="profile-stats">
-      <button type="button" class="profile-stat" onclick="openProfileStat('listings')"><b>${own.length}</b><span>${t().activeListings}</span></button>
-      <button type="button" class="profile-stat" onclick="openProfileStat('saved')"><b>${state.favs.size}</b><span>${t().savedItems}</span></button>
-      <button type="button" class="profile-stat" onclick="openProfileStat('messages')"><b>${Object.keys(chatThreads).length}</b><span>${t().conversations}</span></button>
-      <button type="button" class="profile-stat" onclick="openProfileStat('rating')"><b>${Number(user.rating).toFixed(1)}</b><span>${t().ratingLabel}</span></button>
+      <button type="button" class="profile-stat" data-click="openProfileStat" data-click-args='${dataArgs(['listings'])}'><b>${own.length}</b><span>${t().activeListings}</span></button>
+      <button type="button" class="profile-stat" data-click="openProfileStat" data-click-args='${dataArgs(['saved'])}'><b>${state.favs.size}</b><span>${t().savedItems}</span></button>
+      <button type="button" class="profile-stat" data-click="openProfileStat" data-click-args='${dataArgs(['messages'])}'><b>${Object.keys(chatThreads).length}</b><span>${t().conversations}</span></button>
+      <button type="button" class="profile-stat" data-click="openProfileStat" data-click-args='${dataArgs(['rating'])}'><b>${Number(user.rating).toFixed(1)}</b><span>${t().ratingLabel}</span></button>
     </div>
     ${subscriptionDashboardHTML(user, own)}
     <section class="profile-section">
       <h3>${state.lang==="fr" ? "Confiance" : "Trust"}</h3>
       <div class="trust-badges">
-        <button type="button" onclick="showTrustInfo('email')">${t().verifiedEmail}</button>
-        ${proActive ? `<button type="button" onclick="showTrustInfo('pro')">${state.lang === "fr" ? "Compte Pro certifié" : "Certified Pro account"}</button>` : ""}
-        <button type="button" onclick="showTrustInfo('member')">${t().trustedMember}</button>
-        <button type="button" onclick="showTrustInfo('reply')">${t().fastReply}</button>
+        <button type="button" data-click="showTrustInfo" data-click-args='${dataArgs(['email'])}'>${t().verifiedEmail}</button>
+        ${proActive ? `<button type="button" data-click="showTrustInfo" data-click-args='${dataArgs(['pro'])}'>${state.lang === "fr" ? "Compte Pro certifié" : "Certified Pro account"}</button>` : ""}
+        <button type="button" data-click="showTrustInfo" data-click-args='${dataArgs(['member'])}'>${t().trustedMember}</button>
+        <button type="button" data-click="showTrustInfo" data-click-args='${dataArgs(['reply'])}'>${t().fastReply}</button>
       </div>
     </section>
     <section class="profile-section">
       <h3>${state.lang==="fr" ? "Boîte à outils vendeur" : "Seller toolkit"}</h3>
       <div class="profile-tools">
-        <button type="button" class="profile-tool" onclick="closeModal('profileModal');openPostModal()">
+        <button type="button" class="profile-tool" data-click="closeProfileModalThenPostModal">
           <b>${state.lang==="fr" ? "Mettre un objet en avant" : "List something now"}</b>
           <span>${state.lang==="fr" ? "Photos, prix, quartier et devise en quelques minutes." : "Photos, price, area and currency in a few minutes."}</span>
         </button>
-        <button type="button" class="profile-tool" onclick="closeModal('profileModal');openMessages()">
+        <button type="button" class="profile-tool" data-click="closeProfileModalThenMessages">
           <b>${state.lang==="fr" ? "Répondre aux acheteurs" : "Reply to buyers"}</b>
           <span>${state.lang==="fr" ? "Les réponses rapides aident à vendre plus vite." : "Fast replies help listings sell sooner."}</span>
         </button>
-        <button type="button" class="profile-tool" onclick="closeModal('profileModal');openBoostInfo()">
+        <button type="button" class="profile-tool" data-click="closeProfileModalThenBoostInfo">
           <b>${t().boostCta}</b>
           <span>${state.lang==="fr" ? "Boost 3, 7 ou 14 jours sans abonnement Pro." : "Boost for 3, 7, or 14 days without a Pro subscription."}</span>
         </button>
-        <button type="button" class="profile-tool" onclick="scrollFavs();closeModal('profileModal')">
+        <button type="button" class="profile-tool" data-click="scrollFavsThenCloseProfileModal">
           <b>${state.lang==="fr" ? "Suivre mes favoris" : "Watch saved items"}</b>
           <span>${state.lang==="fr" ? "Gardez les bons plans sous la main." : "Keep good deals close."}</span>
         </button>
-        ${(!window.matchMedia || !window.matchMedia('(display-mode: standalone)').matches) ? `<button type="button" class="profile-tool" onclick="if(!(window.bstPromptInstall&&bstPromptInstall()))showToast('${state.lang==="fr" ? "Ouvrez le menu de votre navigateur puis « Ajouter à l\\'écran d\\'accueil »." : "Open your browser menu, then \\'Add to Home Screen\\'."}')">
+        ${(!window.matchMedia || !window.matchMedia('(display-mode: standalone)').matches) ? `<button type="button" class="profile-tool" data-click="handleInstallAppClick">
           <b>${state.lang==="fr" ? "Installer l'application" : "Install the app"}</b>
           <span>${state.lang==="fr" ? "Accès depuis l'écran d'accueil, plein écran, même hors ligne." : "Home-screen access, full screen, works offline."}</span>
         </button>` : ""}
-        ${(window.PUSH_ENABLED && window.Push && Push.supported()) ? `<button type="button" class="profile-tool" id="pushTool" onclick="toggleProfilePushNotifications(this)">
+        ${(window.PUSH_ENABLED && window.Push && Push.supported()) ? `<button type="button" class="profile-tool" id="pushTool" data-click="toggleProfilePushNotifications" data-click-args='${dataArgs(["__THIS__"])}'>
           <b>${state.lang==="fr" ? "Activer les notifications" : "Turn on notifications"}</b>
           <span>${state.lang==="fr" ? "Soyez prévenu des nouveaux messages, même l'app fermée." : "Get told about new messages, even when the app is closed."}</span>
         </button>` : ""}
-        ${isAdminUser(user) ? `<button type="button" class="profile-tool" onclick="closeModal('profileModal');openAdmin()">
+        ${isAdminUser(user) ? `<button type="button" class="profile-tool" data-click="closeProfileModalThenAdmin">
           <b>Admin</b>
           <span>${state.lang==="fr" ? "Modérer les annonces, signalements, boosts et catégories." : "Moderate listings, reports, boosts, and categories."}</span>
         </button>` : ""}
@@ -3212,8 +3308,8 @@ function renderProfile(){
       </div>
     </section>
     <div class="detail-actions">
-      <button type="button" class="primary-btn" onclick="closeModal('profileModal');openPostModal()">${t().postAd}</button>
-      <button type="button" class="secondary-btn" onclick="logoutUser()">${t().logoutLabel}</button>
+      <button type="button" class="primary-btn" data-click="closeProfileModalThenPostModal">${t().postAd}</button>
+      <button type="button" class="secondary-btn" data-click="logoutUser">${t().logoutLabel}</button>
     </div>`;
   refreshPushToolLabel(document.getElementById("pushTool"));
   persistState();
@@ -3248,8 +3344,8 @@ function subscriptionDashboardHTML(user, own){
         </div>
         <p>${paymentText}</p>
         <div class="subscription-actions">
-          <button type="button" class="primary-btn" onclick="closeModal('profileModal');openPricingInfo()">${state.lang === "fr" ? "Changer de plan" : "Change plan"}</button>
-          <button type="button" class="secondary-btn" onclick="manageSubscription()">${state.lang === "fr" ? "Gérer / annuler" : "Manage / cancel"}</button>
+          <button type="button" class="primary-btn" data-click="closeProfileModalThenPricing">${state.lang === "fr" ? "Changer de plan" : "Change plan"}</button>
+          <button type="button" class="secondary-btn" data-click="manageSubscription">${state.lang === "fr" ? "Gérer / annuler" : "Manage / cancel"}</button>
         </div>
       </div>
       <div class="subscription-metrics">
@@ -3277,17 +3373,17 @@ function proDashboardHTML(user, own, proActive){
         <article class="pro-panel">
           <h4>${t().proStorefrontTitle}</h4>
           <p>${t().proStorefrontText}</p>
-          <button type="button" class="secondary-btn" onclick="showToast('${esc(t().comingSoon)}')">${t().proOpenStore}</button>
+          <button type="button" class="secondary-btn" data-click="showToast" data-click-args='${dataArgs([t().comingSoon])}'>${t().proOpenStore}</button>
         </article>
         <article class="pro-panel">
           <h4>${t().proProductsTitle}</h4>
           <p>${t().proProductsText}</p>
-          <button type="button" class="primary-btn" onclick="closeModal('profileModal');openPostModal()">${t().proAddProduct}</button>
+          <button type="button" class="primary-btn" data-click="closeProfileModalThenPostModal">${t().proAddProduct}</button>
         </article>
         <article class="pro-panel">
           <h4>${t().proVisibilityTitle}</h4>
           <p>${t().proVisibilityText}</p>
-          <button type="button" class="secondary-btn" onclick="closeModal('profileModal');openBoostInfo()">${t().proBoostProduct}</button>
+          <button type="button" class="secondary-btn" data-click="closeProfileModalThenBoostInfo">${t().proBoostProduct}</button>
         </article>
         <article class="pro-panel">
           <h4>${state.lang==="fr" ? "Méthode de vente" : "Selling method"}</h4>
@@ -3302,19 +3398,19 @@ function proDashboardHTML(user, own, proActive){
 }
 
 function miniListingHTML(l){
-  const idParam = jsArg(l.id);
+  const idParam = idKey(l.id);
   const profile = postFieldProfile(l.cat, l.sub || "");
   const media = mediaFor(l);
   const status = l.sold ? t().sold : l.reserved ? t().reserved : state.lang==="fr" ? "Active" : "Active";
   return `
     <div class="mini-row ${profile.photos ? "" : "no-media"}">
       ${profile.photos ? `<img src="${esc(media.img)}" alt="">` : ""}
-      <button type="button" class="mini-main" onclick="closeModal('profileModal');openListing(${idParam})">
+      <button type="button" class="mini-main" data-click="closeProfileModalThenOpenListing" data-click-args='${dataArgs([idParam])}'>
         <b>${esc(titleFor(l))}</b><br><small>${esc(l.area)}${profile.price ? " · " + priceHTML(l).replace(/<[^>]*>/g," ") : ""}</small>
       </button>
       <div class="mini-actions">
         <small>${status}</small>
-        ${l.sold || hasActiveProSubscription(state.user) ? "" : `<button type="button" class="secondary-btn" onclick="openBoostCheckout(${idParam}, event)">${t().boostCta}</button>`}
+        ${l.sold || hasActiveProSubscription(state.user) ? "" : `<button type="button" class="secondary-btn" data-click="openBoostCheckout" data-click-args='${dataArgs([idParam, "__EVENT__"])}'>${t().boostCta}</button>`}
       </div>
     </div>`;
 }
@@ -3535,7 +3631,7 @@ function renderAdmin(tab=adminTab){
     <div class="admin-shell">
       <div class="admin-note">${state.lang==="fr" ? "Connecté comme admin. Les actions modifient l'app tout de suite; avec Supabase elles utilisent les règles admin ajoutées au schéma." : "Signed in as admin. Actions update the app immediately; with Supabase they use the admin rules added to the schema."}</div>
       <div class="admin-tabs">
-        ${Object.entries(labels).map(([key,label])=>`<button type="button" class="admin-tab" aria-pressed="${adminTab===key}" onclick="renderAdmin('${key}')">${label}${key==="moderation" && stats.pending ? ` (${stats.pending})` : ""}</button>`).join("")}
+        ${Object.entries(labels).map(([key,label])=>`<button type="button" class="admin-tab" aria-pressed="${adminTab===key}" data-click="renderAdmin" data-click-args='${dataArgs([key])}'>${label}${key==="moderation" && stats.pending ? ` (${stats.pending})` : ""}</button>`).join("")}
       </div>
       <div class="admin-metrics">
         <div class="admin-metric"><b>${stats.listings}</b><span>${state.lang==="fr" ? "annonces" : "listings"}</span></div>
@@ -3572,11 +3668,11 @@ function adminListingRows(items){
       <img src="${esc(mediaFor(l).img)}" alt="">
       <div><b>${esc(titleFor(l))}</b><br><small>${esc(l.area || "SXM")} · ${esc(adminPrice(l))} · ${esc(l.cat)}${l.boosted ? " · Boost" : ""}${l.sold ? " · Sold" : ""}${l.moderationStatus && l.moderationStatus !== "approved" ? " · " + (l.moderationStatus === "pending" ? (state.lang==="fr" ? "À valider" : "Pending") : (state.lang==="fr" ? "Rejetée" : "Rejected")) : ""}</small></div>
       <div class="admin-actions">
-        <button type="button" onclick="openListingFromAdmin(${jsArg(l.id)})">${state.lang==="fr" ? "Voir" : "View"}</button>
-        <button type="button" onclick="adminEditListing(${jsArg(l.id)})">${state.lang==="fr" ? "Modifier" : "Edit"}</button>
-        <button type="button" class="primary" onclick="toggleFeaturedAdmin(${jsArg(l.id)})">${l.feat ? (state.lang==="fr" ? "Retirer une" : "Unfeature") : (state.lang==="fr" ? "Mettre une" : "Feature")}</button>
-        <button type="button" onclick="markListingStatusAdmin(${jsArg(l.id)}, '${l.sold ? "active" : "sold"}')">${l.sold ? "Active" : "Sold"}</button>
-        <button type="button" class="danger" onclick="removeListingAdmin(${jsArg(l.id)})">${state.lang==="fr" ? "Supprimer" : "Remove"}</button>
+        <button type="button" data-click="openListingFromAdmin" data-click-args='${dataArgs([l.id])}'>${state.lang==="fr" ? "Voir" : "View"}</button>
+        <button type="button" data-click="adminEditListing" data-click-args='${dataArgs([l.id])}'>${state.lang==="fr" ? "Modifier" : "Edit"}</button>
+        <button type="button" class="primary" data-click="toggleFeaturedAdmin" data-click-args='${dataArgs([l.id])}'>${l.feat ? (state.lang==="fr" ? "Retirer une" : "Unfeature") : (state.lang==="fr" ? "Mettre une" : "Feature")}</button>
+        <button type="button" data-click="markListingStatusAdmin" data-click-args='${dataArgs([idKey(l.id), l.sold ? "active" : "sold"])}'>${l.sold ? "Active" : "Sold"}</button>
+        <button type="button" class="danger" data-click="removeListingAdmin" data-click-args='${dataArgs([l.id])}'>${state.lang==="fr" ? "Supprimer" : "Remove"}</button>
       </div>
     </div>`).join("") || `<p>${state.lang==="fr" ? "Rien à afficher." : "Nothing to show."}</p>`}</div>`;
 }
@@ -3596,7 +3692,7 @@ function filterAdminListings(value){
 function adminListingsHTML(items){
   return `<section class="admin-panel">
     <h3>${state.lang==="fr" ? "Gérer les annonces" : "Manage listings"}</h3>
-    <input type="text" class="admin-search" placeholder="${state.lang==="fr" ? "Rechercher par titre, catégorie, zone..." : "Search by title, category, area..."}" value="${esc(adminListingSearch)}" oninput="filterAdminListings(this.value)">
+    <input type="text" class="admin-search" placeholder="${state.lang==="fr" ? "Rechercher par titre, catégorie, zone..." : "Search by title, category, area..."}" value="${esc(adminListingSearch)}" data-input="filterAdminListings" data-input-args='${dataArgs(["__VALUE__"])}'>
     <div id="adminListingResults">${adminListingRows(filterListingsBySearch(items, adminListingSearch))}</div>
   </section>`;
 }
@@ -3613,8 +3709,8 @@ function adminReportRows(items){
       ${l ? `<img src="${esc(mediaFor(l).img)}" alt="">` : ""}
       <div><b>${esc(l ? titleFor(l) : "Listing removed")}</b><br><small>${esc(r.reason)} · ${r.createdAt ? new Date(r.createdAt).toLocaleDateString(state.lang==="fr"?"fr-FR":"en-US") : ""} · ${esc(r.status)}</small>${r.notes ? `<br><small>${esc(r.notes)}</small>` : ""}</div>
       <div class="admin-actions">
-        ${l ? `<button type="button" onclick="openListingFromAdmin(${jsArg(l.id)})">${state.lang==="fr" ? "Voir" : "View"}</button><button type="button" class="danger" onclick="removeListingAdmin(${jsArg(l.id)})">${state.lang==="fr" ? "Supprimer" : "Remove"}</button>` : ""}
-        <button type="button" class="primary" onclick="resolveReportAdmin('${r.id}')">${state.lang==="fr" ? "Résoudre" : "Resolve"}</button>
+        ${l ? `<button type="button" data-click="openListingFromAdmin" data-click-args='${dataArgs([l.id])}'>${state.lang==="fr" ? "Voir" : "View"}</button><button type="button" class="danger" data-click="removeListingAdmin" data-click-args='${dataArgs([l.id])}'>${state.lang==="fr" ? "Supprimer" : "Remove"}</button>` : ""}
+        <button type="button" class="primary" data-click="resolveReportAdmin" data-click-args='${dataArgs([r.id])}'>${state.lang==="fr" ? "Résoudre" : "Resolve"}</button>
       </div>
     </div>`;
   }).join("") || `<p>${state.lang==="fr" ? "Aucun signalement ouvert." : "No open reports."}</p>`}</div>`;
@@ -3642,10 +3738,10 @@ function adminModerationHTML(){
             <div class="ai-scan-result" id="aiScan-${l.id}"></div>
           </div>
           <div class="admin-actions">
-            <button type="button" onclick="openListingFromAdmin(${jsArg(l.id)})">${state.lang==="fr" ? "Voir" : "View"}</button>
-            <button type="button" onclick="scanListingPhotosAdmin(${jsArg(l.id)}, this)">${state.lang==="fr" ? "Scanner les photos (IA)" : "Scan photos (AI)"}</button>
-            <button type="button" class="primary" onclick="setModerationStatusAdmin(${jsArg(l.id)}, 'approved')">${state.lang==="fr" ? "Approuver" : "Approve"}</button>
-            <button type="button" class="danger" onclick="setModerationStatusAdmin(${jsArg(l.id)}, 'rejected')">${state.lang==="fr" ? "Rejeter" : "Reject"}</button>
+            <button type="button" data-click="openListingFromAdmin" data-click-args='${dataArgs([l.id])}'>${state.lang==="fr" ? "Voir" : "View"}</button>
+            <button type="button" data-click="scanListingPhotosAdmin" data-click-args='${dataArgs([l.id, "__THIS__"])}'>${state.lang==="fr" ? "Scanner les photos (IA)" : "Scan photos (AI)"}</button>
+            <button type="button" class="primary" data-click="setModerationStatusAdmin" data-click-args='${dataArgs([l.id, 'approved'])}'>${state.lang==="fr" ? "Approuver" : "Approve"}</button>
+            <button type="button" class="danger" data-click="setModerationStatusAdmin" data-click-args='${dataArgs([l.id, 'rejected'])}'>${state.lang==="fr" ? "Rejeter" : "Reject"}</button>
           </div>
         </div>`).join("") || `<p>${state.lang==="fr" ? "Rien à valider." : "Nothing to review."}</p>`}
     </div>
@@ -3658,7 +3754,7 @@ function adminModerationHTML(){
         ${catOptions.map(c=>`<label><input type="checkbox" value="${c.id}" ${adminModerationRules.categories.includes(c.id) ? "checked" : ""}> ${c[state.lang]}</label>`).join("")}
       </div>
       <textarea id="adminModKeywords" rows="3" placeholder="${state.lang==="fr" ? "ex: arme, pistolet, drogue" : "e.g. weapon, gun, drug"}">${esc((adminModerationRules.keywords || []).join(", "))}</textarea>
-      <div class="detail-actions"><button type="button" class="primary-btn" onclick="saveModerationRulesAdmin()">${state.lang==="fr" ? "Enregistrer les règles" : "Save rules"}</button></div>
+      <div class="detail-actions"><button type="button" class="primary-btn" data-click="saveModerationRulesAdmin">${state.lang==="fr" ? "Enregistrer les règles" : "Save rules"}</button></div>
     </div>
   </section>`;
 }
@@ -3713,9 +3809,9 @@ function adminUserRows(list){
     return `<div class="admin-row no-img">
       <div><b>${esc(u.businessName || u.name || u.email)}</b><br><small>${esc(u.email || "")} · ${esc(u.accountType || "personal")} · ${u.listings || 0} listings · ${banned ? "Banned" : "Active"}${u.role === "admin" ? " · Admin" : ""}</small></div>
       <div class="admin-actions">
-        <button type="button" onclick="toggleAdminRole('${esc(String(u.id))}')" ${canManage ? "" : "disabled"}>${u.role === "admin" ? "User" : "Admin"}</button>
-        <button type="button" class="danger" onclick="toggleBanUser('${esc(String(u.id))}')" ${canManage ? "" : "disabled"}>${banned ? (state.lang==="fr" ? "Débloquer" : "Unban") : (state.lang==="fr" ? "Bannir" : "Ban")}</button>
-        <button type="button" class="danger" onclick="deleteUserAdmin('${esc(String(u.id))}')" ${canUseSupabaseAdmin() && isUuid(u.id) ? "" : "disabled"}>${state.lang==="fr" ? "Supprimer le compte" : "Delete account"}</button>
+        <button type="button" data-click="toggleAdminRole" data-click-args='${dataArgs([String(u.id)])}' ${canManage ? "" : "disabled"}>${u.role === "admin" ? "User" : "Admin"}</button>
+        <button type="button" class="danger" data-click="toggleBanUser" data-click-args='${dataArgs([String(u.id)])}' ${canManage ? "" : "disabled"}>${banned ? (state.lang==="fr" ? "Débloquer" : "Unban") : (state.lang==="fr" ? "Bannir" : "Ban")}</button>
+        <button type="button" class="danger" data-click="deleteUserAdmin" data-click-args='${dataArgs([String(u.id)])}' ${canUseSupabaseAdmin() && isUuid(u.id) ? "" : "disabled"}>${state.lang==="fr" ? "Supprimer le compte" : "Delete account"}</button>
       </div>
     </div>`;
   }).join("") || `<p>${state.lang==="fr" ? "Aucun utilisateur." : "No users."}</p>`;
@@ -3736,7 +3832,7 @@ function filterAdminUsers(value){
 function adminUsersHTML(){
   return `<section class="admin-panel">
     <h3>${state.lang==="fr" ? "Utilisateurs et bannissements" : "Users and bans"}</h3>
-    <input type="text" class="admin-search" placeholder="${state.lang==="fr" ? "Rechercher par nom ou email..." : "Search by name or email..."}" value="${esc(adminUserSearch)}" oninput="filterAdminUsers(this.value)">
+    <input type="text" class="admin-search" placeholder="${state.lang==="fr" ? "Rechercher par nom ou email..." : "Search by name or email..."}" value="${esc(adminUserSearch)}" data-input="filterAdminUsers" data-input-args='${dataArgs(["__VALUE__"])}'>
     <div id="adminUserResults" class="admin-table">${adminUserRows(filterUsersBySearch(adminUsers(), adminUserSearch))}</div>
   </section>`;
 }
@@ -3761,7 +3857,7 @@ async function deleteUserAdmin(id){
 function adminBoostsHTML(){
   const boosted = L.filter(l=>l.boosted || l.feat);
   return `<section class="admin-panel"><h3>${state.lang==="fr" ? "Boosts et visibilité payante" : "Boosts and paid visibility"}</h3>${adminListingRows(boosted)}
-    <div class="detail-actions"><button type="button" class="primary-btn" onclick="renderAdmin('listings')">${state.lang==="fr" ? "Choisir une annonce à booster" : "Choose a listing to boost"}</button></div>
+    <div class="detail-actions"><button type="button" class="primary-btn" data-click="renderAdmin" data-click-args='${dataArgs(['listings'])}'>${state.lang==="fr" ? "Choisir une annonce à booster" : "Choose a listing to boost"}</button></div>
   </section>`;
 }
 
@@ -3793,8 +3889,8 @@ function adminAdRowHTML(c){
       ${ADMIN_AD_PLACEMENTS.map(p=>`<label><input type="checkbox" class="ad-placement" value="${p}" ${(c.placements || []).includes(p) ? "checked" : ""}> ${p}</label>`).join("")}
     </div>
     <div class="admin-actions">
-      <button type="button" class="primary" onclick="saveAdCampaignRow('${esc(id)}')">${state.lang==="fr" ? "Enregistrer" : "Save"}</button>
-      <button type="button" class="danger" onclick="deleteAdCampaignRow('${esc(id)}')">${state.lang==="fr" ? "Supprimer" : "Delete"}</button>
+      <button type="button" class="primary" data-click="saveAdCampaignRow" data-click-args='${dataArgs([id])}'>${state.lang==="fr" ? "Enregistrer" : "Save"}</button>
+      <button type="button" class="danger" data-click="deleteAdCampaignRow" data-click-args='${dataArgs([id])}'>${state.lang==="fr" ? "Supprimer" : "Delete"}</button>
     </div>
   </div>`;
 }
@@ -3808,7 +3904,7 @@ function adminAdsHTML(){
     <h3>${state.lang==="fr" ? "Publicités vendues directement" : "Direct-sold ads"}</h3>
     <p class="admin-note">${state.lang==="fr" ? "Une pub active pour un emplacement passe toujours avant AdSense et les messages internes." : "An active ad for a placement always beats AdSense and house promos."}</p>
     <div id="adminAdsList">${adminAdRows(adminAdCampaigns)}</div>
-    <div class="detail-actions"><button type="button" class="primary-btn" onclick="addAdCampaignRow()">${state.lang==="fr" ? "+ Ajouter une pub" : "+ Add an ad"}</button></div>
+    <div class="detail-actions"><button type="button" class="primary-btn" data-click="addAdCampaignRow">${state.lang==="fr" ? "+ Ajouter une pub" : "+ Add an ad"}</button></div>
   </section>`;
 }
 
@@ -3867,7 +3963,7 @@ function adminCategoriesHTML(){
       return `<div class="admin-row">
         <img src="${G[c.id].img}" alt="">
         <div><b>${c[state.lang]}</b><br><small>${count} listings · ${hidden ? "Hidden" : "Visible"}</small></div>
-        <div class="admin-actions"><button type="button" class="${hidden ? "primary" : ""}" onclick="toggleCategoryAdmin('${c.id}')">${hidden ? (state.lang==="fr" ? "Afficher" : "Show") : (state.lang==="fr" ? "Masquer" : "Hide")}</button></div>
+        <div class="admin-actions"><button type="button" class="${hidden ? "primary" : ""}" data-click="toggleCategoryAdmin" data-click-args='${dataArgs([c.id])}'>${hidden ? (state.lang==="fr" ? "Afficher" : "Show") : (state.lang==="fr" ? "Masquer" : "Hide")}</button></div>
       </div>`;
     }).join("")}
   </div></section>`;
@@ -4178,15 +4274,15 @@ async function markSoldAndRemove(id, e){
 
 function ownerActionBarHTML(l){
   if(!isOwnListing(l)) return "";
-  const p = jsArg(l.id);
+  const p = idKey(l.id);
   const sold = listingIsSold(l);
-  return `<div class="owner-bar" onclick="event.stopPropagation()">
+  return `<div class="owner-bar" data-click="stopEventPropagation" data-click-args='${dataArgs(["__EVENT__"])}'>
     <span class="owner-bar-tag">${state.lang==="fr" ? "Votre annonce" : "Your listing"}</span>
     ${sold
-      ? `<button type="button" class="owner-btn" onclick="setOwnListingSold(${p}, false, event)">${state.lang==="fr" ? "Remettre en vente" : "Relist"}</button>`
-      : `<button type="button" class="owner-btn sold" onclick="setOwnListingSold(${p}, true, event)">${state.lang==="fr" ? "Marquer comme vendu" : "Mark as sold"}</button>`}
-    <button type="button" class="owner-btn" onclick="openEditListing(${p}, event)">${state.lang==="fr" ? "Modifier" : "Edit"}</button>
-    <button type="button" class="owner-btn danger" onclick="deleteOwnListing(${p}, event)">${state.lang==="fr" ? "Supprimer" : "Delete"}</button>
+      ? `<button type="button" class="owner-btn" data-click="setOwnListingSold" data-click-args='${dataArgs([p, false, "__EVENT__"])}'>${state.lang==="fr" ? "Remettre en vente" : "Relist"}</button>`
+      : `<button type="button" class="owner-btn sold" data-click="setOwnListingSold" data-click-args='${dataArgs([p, true, "__EVENT__"])}'>${state.lang==="fr" ? "Marquer comme vendu" : "Mark as sold"}</button>`}
+    <button type="button" class="owner-btn" data-click="openEditListing" data-click-args='${dataArgs([p, "__EVENT__"])}'>${state.lang==="fr" ? "Modifier" : "Edit"}</button>
+    <button type="button" class="owner-btn danger" data-click="deleteOwnListing" data-click-args='${dataArgs([p, "__EVENT__"])}'>${state.lang==="fr" ? "Supprimer" : "Delete"}</button>
   </div>`;
 }
 
@@ -4933,7 +5029,7 @@ function renderPhotoPreview(){
   document.getElementById("photoPreview").innerHTML = selectedPostPhotos.map((src,i)=>`
     <figure>
       <img src="${src}" alt="Photo ${i+1}">
-      <button type="button" class="photo-remove" onclick="removePostPhoto(${i})" aria-label="${state.lang==="fr" ? "Supprimer la photo" : "Remove photo"}">x</button>
+      <button type="button" class="photo-remove" data-click="removePostPhoto" data-click-args='${dataArgs([i])}' aria-label="${state.lang==="fr" ? "Supprimer la photo" : "Remove photo"}">x</button>
     </figure>`).join("");
 }
 
@@ -5070,7 +5166,7 @@ function buildAreas(){
 function buildCats(){
   const visibleCats = CATS.filter(c=>c.id === "all" || !adminCategoryStatus[c.id]?.hidden);
   document.getElementById("catrail").innerHTML = visibleCats.map(c=>
-    `<button type="button" class="cat" aria-pressed="${c.id===state.cat}" onclick="setCat('${c.id}', this)">
+    `<button type="button" class="cat" aria-pressed="${c.id===state.cat}" data-click="setCat" data-click-args='${dataArgs([c.id, "__THIS__"])}'>
       <img src="${G[c.id].img}" alt="" loading="lazy">
       <span>${c[state.lang]}</span>
     </button>`
@@ -5090,12 +5186,12 @@ function renderSubcats(){
   panel.classList.add("show");
   document.getElementById("subcatTitle").textContent = data[state.lang];
   document.querySelector(".subcat-head span").innerHTML =
-    `${t().subcatHint} <button type="button" class="subcat-reset" onclick="setSubcat('', this)">${state.lang==="fr"?"Tout afficher":"Show all"}</button>`;
+    `${t().subcatHint} <button type="button" class="subcat-reset" data-click="setSubcat" data-click-args='${dataArgs(['', "__THIS__"])}'>${state.lang==="fr"?"Tout afficher":"Show all"}</button>`;
   groups.innerHTML = data.groups.map(group=>`
     <div class="subcat-group">
       <strong>${group[state.lang]}</strong>
       <div class="subcat-links">
-        ${group.items.map(item=>`<button type="button" class="subcat-chip" aria-pressed="${state.subcat===item.id}" onclick="setSubcat('${item.id}', this)">${item[state.lang]}</button>`).join("")}
+        ${group.items.map(item=>`<button type="button" class="subcat-chip" aria-pressed="${state.subcat===item.id}" data-click="setSubcat" data-click-args='${dataArgs([item.id, "__THIS__"])}'>${item[state.lang]}</button>`).join("")}
       </div>
     </div>`).join("");
 }
