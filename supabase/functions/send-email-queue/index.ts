@@ -1,5 +1,6 @@
 type EmailQueueRow = {
   id: string;
+  user_id: string | null;
   recipient_email: string;
   listing_id: number | string | null;
   template: string;
@@ -66,6 +67,14 @@ function actionUrl(listingId: string | number | null, action: "keep" | "sold" | 
   return url.toString();
 }
 
+function unsubscribeUrl(userId: string | null) {
+  if (!userId) return null;
+  const url = new URL(siteUrl + "/");
+  url.searchParams.set("unsub", "renewal");
+  url.searchParams.set("uid", userId);
+  return url.toString();
+}
+
 function buildListingRenewalEmail(row: EmailQueueRow) {
   const title = String(row.payload?.listing_title || "votre annonce");
   const listingId = row.payload?.listing_id || row.listing_id;
@@ -73,6 +82,13 @@ function buildListingRenewalEmail(row: EmailQueueRow) {
   const keepUrl = actionUrl(listingId, "keep");
   const soldUrl = actionUrl(listingId, "sold");
   const deleteUrl = actionUrl(listingId, "delete");
+  const unsubUrl = unsubscribeUrl(row.user_id);
+  const unsubFooter = unsubUrl
+    ? `<p style="font-size:12px;color:#8a9598;margin-top:20px;">
+        <a href="${unsubUrl}" style="color:#8a9598;">Ne plus recevoir ces rappels</a> ·
+        <a href="${unsubUrl}" style="color:#8a9598;">Stop these reminders</a>
+      </p>`
+    : "";
 
   const html = `<!doctype html>
 <html lang="fr">
@@ -98,6 +114,7 @@ function buildListingRenewalEmail(row: EmailQueueRow) {
         <a href="${deleteUrl}" style="display:inline-block;background:#ffe0dd;color:#092126;border:2px solid #092126;border-radius:10px;padding:12px 16px;font-weight:700;text-decoration:none;margin:0 8px 8px 0;">Delete</a>
       </p>
       <p style="font-size:14px;color:#526366;">Without a response, the listing may be hidden automatically after a few days.</p>
+      ${unsubFooter}
     </main>
   </body>
 </html>`;

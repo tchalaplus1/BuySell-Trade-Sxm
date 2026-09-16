@@ -274,6 +274,17 @@
       return null;
     },
 
+    // Unsubscribe link target for the listing-renewal reminder email.
+    // Deliberately works without being signed in -- callable by anon,
+    // keyed only by the profile id already in the (unauthenticated) link.
+    unsubscribeRenewalEmails: async function (userId) {
+      if (!window.db || !userId) return false;
+      var rpc = await window.db.rpc("unsubscribe_renewal_emails", { p_user_id: userId });
+      if (!rpc.error) return true;
+      console.warn("[SB] unsubscribeRenewalEmails:", rpc.error.message);
+      return false;
+    },
+
     // supprime une annonce. Côté base, réservé au propriétaire ou à un admin.
     deleteListing: async function (id) {
       if (!window.db || !id) return false;

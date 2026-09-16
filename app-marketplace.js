@@ -2434,6 +2434,27 @@ function clearRenewalActionFromUrl(){
   history.replaceState(null, "", url.pathname + url.search + url.hash);
 }
 
+// Handles the unsubscribe link in the listing-renewal reminder email
+// (?unsub=renewal&uid=<profile id>). Works whether or not the visitor is
+// signed in -- that's the point of an unsubscribe link -- so it calls the
+// RPC directly rather than going through requireAccount().
+async function handleUnsubscribeFromUrl(){
+  const params = new URLSearchParams(location.search);
+  if(params.get("unsub") !== "renewal") return;
+  const uid = params.get("uid");
+  const url = new URL(location.href);
+  url.searchParams.delete("unsub");
+  url.searchParams.delete("uid");
+  history.replaceState(null, "", url.pathname + url.search + url.hash);
+  if(!uid) return;
+  const ok = canUseSupabaseAdmin() || (window.SB && SB.enabled())
+    ? await SB.unsubscribeRenewalEmails(uid)
+    : false;
+  showToast(ok
+    ? (state.lang==="fr" ? "Vous ne recevrez plus ces rappels." : "You will no longer receive these reminders.")
+    : (state.lang==="fr" ? "Échec de la désinscription." : "Unsubscribe failed."));
+}
+
 async function handleListingRenewalActionFromUrl(){
   const pending = renewalActionFromUrl();
   if(!pending) return;
@@ -5289,7 +5310,7 @@ Object.assign(window, {
 window.__bstState = state;
 
 /* ---------------- INIT ---------------- */
-loadLocalState(); applyLocalAdminTestMode(); restoreListingsIfNeeded(); applyAutomaticIncludedBoosts({silent:true}); buildAreas(); buildCats(); buildFilters(); buildSort(); setLang(state.lang); setCurrency(state.cur); render(); openListingFromUrl(); openAdminFromUrl(); handleListingRenewalActionFromUrl();
+loadLocalState(); applyLocalAdminTestMode(); restoreListingsIfNeeded(); applyAutomaticIncludedBoosts({silent:true}); buildAreas(); buildCats(); buildFilters(); buildSort(); setLang(state.lang); setCurrency(state.cur); render(); openListingFromUrl(); openAdminFromUrl(); handleListingRenewalActionFromUrl(); handleUnsubscribeFromUrl();
 
 /* Supabase : si configuré, remplace les annonces de démo par celles de la base. */
 if (window.SB && SB.enabled() && !new URLSearchParams(location.search || "").has("local")) {
