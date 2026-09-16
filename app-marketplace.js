@@ -1792,21 +1792,23 @@ function manageSubscription(){
     ? "Gestion et annulation arrivent avec Stripe Billing."
     : "Manage and cancel arrives with Stripe Billing.");
 }
+// Only ever shows facts this app can actually back: a Pro badge is tied to
+// a real subscription_status check, and every account holder has a
+// verified email by construction (mailer_autoconfirm is off, so login is
+// impossible without confirming it). Star ratings, review/sale counts,
+// "member since", "fast responder", and "phone verified" were previously
+// invented here whenever a listing had no real data (no `reviews` table
+// exists anywhere in the schema, and there is no phone-verification flow
+// at all) -- fabricated trust signals shown identically for a brand-new
+// account and an established one. Removed rather than backed with real
+// data, since building an actual review system is a separate feature.
 function sellerTrustHTML(l){
-  const rating = l.rating || (l.pro ? 4.9 : 4.8);
-  const reviews = l.reviews || (l.pro ? 27 : 8);
-  const sales = l.sales || (l.pro ? 18 : 5);
-  const verified = l.pro ? t().profileVerified : t().phoneVerified;
+  if(!l.pro) return "";
   return `
     <div class="seller-trust">
-      <div class="seller-score"><b>${rating.toFixed(1)}</b><span>${reviews} ${t().reviewsLabel}</span></div>
       <div class="seller-trust-grid">
-        <span>${verified}</span>
-        <span>${t().phoneVerified}</span>
+        <span>${t().profileVerified}</span>
         <span>${t().emailVerifiedShort}</span>
-        <span>${t().memberSince} 2026</span>
-        <span>${sales} ${t().salesLabel}</span>
-        <span>${t().fastResponder}</span>
       </div>
     </div>`;
 }
