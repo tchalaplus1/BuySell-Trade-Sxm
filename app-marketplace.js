@@ -2175,11 +2175,20 @@ function render(){
   const grid = document.getElementById("grid");
   grid.className = "grid" + (state.view==="list" ? " list" : "");
   const listingCards = list.map(l=>cardHTML(l,false));
-  if(listingCards.length > 6) listingCards.splice(6, 0, mobileAdHTML("feed-after-6"));
-  if(listingCards.length > 15) listingCards.splice(15, 0, mobileAdHTML("feed-after-14"));
-  if(listingCards.length > 30) listingCards.splice(30, 0, mobileAdHTML("feed-after-28"));
+  // One ad slot every FEED_AD_INTERVAL listings -- deliberately not every
+  // listing (Google AdSense's ad-density policy can get a whole account
+  // suspended for pages that read as mostly ads), but tight enough to
+  // maximize impressions within that limit.
+  const FEED_AD_INTERVAL = 4;
+  const listingCardsWithAds = [];
+  listingCards.forEach((card, idx) => {
+    listingCardsWithAds.push(card);
+    if((idx + 1) % FEED_AD_INTERVAL === 0 && idx + 1 < listingCards.length){
+      listingCardsWithAds.push(mobileAdHTML("feed-after-" + (idx + 1)));
+    }
+  });
   grid.innerHTML = list.length
-    ? listingCards.join("")
+    ? listingCardsWithAds.join("")
     : `<div class="no-results"><b>${t().noneT}</b>${t().noneB}</div>`;
 
   document.getElementById("count").innerHTML =
