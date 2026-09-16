@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Buy Sell Trade SXM</string>
-    <string name="title_activity_main">Buy Sell Trade SXM</string>
+    <string name="app_name">Buy Sell Trade Sxm</string>
+    <string name="title_activity_main">Buy Sell Trade Sxm</string>
     <string name="package_name">com.korekdigitalmarketing.buyselltradesxm</string>
     <string name="custom_url_scheme">com.korekdigitalmarketing.buyselltradesxm</string>
 
