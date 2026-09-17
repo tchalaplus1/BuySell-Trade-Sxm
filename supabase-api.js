@@ -854,6 +854,14 @@
       return res.data || { ok: true };
     },
 
+    // Suppression de compte en libre-service (droit à l'effacement / GDPR).
+    deleteMyAccount: async function () {
+      if (!window.db) return { error: "not connected" };
+      var res = await window.db.functions.invoke("delete-my-account", { body: {} });
+      if (res.error) { console.warn("[SB] deleteMyAccount:", res.error.message); return { error: res.error.message }; }
+      return res.data || { ok: true };
+    },
+
     // demande à l'Edge Function moderate-photo (AWS Rekognition) d'analyser une photo.
     moderatePhoto: async function (imageUrl) {
       if (!window.db) return { error: "not connected" };
