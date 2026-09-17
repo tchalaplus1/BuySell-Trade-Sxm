@@ -3214,9 +3214,19 @@ function openBoostCheckout(id, event){
 
 function selectBoostPlan(days, btn){
   pendingBoostDays = days;
-  document.querySelectorAll("#boostCheckoutModal .boost-plan-choice").forEach(choice=>
-    choice.setAttribute("aria-pressed", btn ? choice === btn : choice.getAttribute("onclick")?.includes(`(${days},`))
-  );
+  document.querySelectorAll("#boostCheckoutModal .boost-plan-choice").forEach(choice=>{
+    if(btn){ choice.setAttribute("aria-pressed", choice === btn); return; }
+    // Called without a button (e.g. pre-selecting a plan when the checkout
+    // modal opens programmatically) -- match by the days encoded in
+    // data-click-args instead of the onclick attribute, which no longer
+    // exists since inline handlers were replaced with delegated dispatch.
+    let matches = false;
+    try {
+      const args = JSON.parse(choice.getAttribute("data-click-args") || "[]");
+      matches = args[0] === days;
+    } catch(e){ /* ignore */ }
+    choice.setAttribute("aria-pressed", matches);
+  });
   const amount = document.getElementById("boostCheckoutAmount");
   if(amount) amount.textContent = boostPlan(days).label;
 }
