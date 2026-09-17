@@ -2581,6 +2581,31 @@ function toggleFilters(open){
   document.getElementById("scrim").classList.toggle("show", open);
 }
 
+// Builds the signup consent label via real DOM nodes rather than
+// innerHTML/textContent -- it needs two genuine <a> links, and the
+// data-i18n mechanism (el.textContent = ...) would strip any markup on
+// every language switch, so this can't go through the generic i18n loop.
+// Content here is 100% static/hardcoded, never derived from user or
+// remote data, so building it with createElement is just about
+// surviving re-renders, not an XSS concern.
+function updateTermsConsentLabel(){
+  const el = document.getElementById("termsConsentLabel");
+  if(!el) return;
+  el.textContent = "";
+  const parts = state.lang==="fr"
+    ? ["J'accepte les ", "Conditions d'utilisation", " et la ", "Politique de confidentialité", "."]
+    : ["I agree to the ", "Terms of Use", " and ", "Privacy Policy", "."];
+  el.appendChild(document.createTextNode(parts[0]));
+  const terms = document.createElement("a");
+  terms.href = "/terms.html"; terms.target = "_blank"; terms.rel = "noopener"; terms.textContent = parts[1];
+  el.appendChild(terms);
+  el.appendChild(document.createTextNode(parts[2]));
+  const privacy = document.createElement("a");
+  privacy.href = "/privacy.html"; privacy.target = "_blank"; privacy.rel = "noopener"; privacy.textContent = parts[3];
+  el.appendChild(privacy);
+  el.appendChild(document.createTextNode(parts[4]));
+}
+
 /* ---------------- I18N SWAP ---------------- */
 function setLang(lang){
   if(!I18N[lang]) lang = "fr";
@@ -2599,6 +2624,7 @@ function setLang(lang){
   document.querySelectorAll(".post[data-mobile-label]").forEach(el=>{
     if(t().postShort) el.setAttribute("data-mobile-label", t().postShort);
   });
+  updateTermsConsentLabel();
   const accountPlan = document.getElementById("accountPlan");
   const accountSubmit = document.querySelector("#accountModal .auth-card button[type=submit]");
   if(accountPlan && accountSubmit) accountSubmit.textContent = isPaidPlan(accountPlan.value) ? t().continueToPayment : t().accountSubmit;
